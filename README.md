@@ -10,8 +10,8 @@ Development of computer vision system specifically to detect lane markings only.
 Computer vision is hard. Will likely need to resort to starting with an off-the-shelf open-source solution and adapt for my use case rather than reinvent the wheel by myself.
 
 ## Stretch Goals:
-A) Get software running at acceptable rate on an embedded device.
-B) Integrate aforementioned embedded device into an RC car and use an Arduino or something to feed in inputs (PWM, PCM, etc.) into RC receiver.
+1. Get software running at acceptable rate on an embedded device.
+1. Integrate aforementioned embedded device into an RC car and use an Arduino or something to feed in inputs (PWM, PCM, etc.) into RC receiver.
 
 ## Timeline:
 Now until end of review period?
