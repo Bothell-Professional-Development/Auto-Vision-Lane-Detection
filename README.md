@@ -29,5 +29,3 @@ Derek Kumagai, Engineering/Project Management
 
 ## Opensource Software:
 opencv-3.3.0
-
-testing
