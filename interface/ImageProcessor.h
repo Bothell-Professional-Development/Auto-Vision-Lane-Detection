@@ -20,13 +20,14 @@ public:
 				   int32_t roiUpperLimit,
 				   int32_t roiLowerLimit);
 
-    cv::Mat LaneFilter(cv::Mat & inputMat);
-
+	//cv::Mat LaneFilter(cv::Mat & inputMat, cv::Scalar &medianLaneColor);
+	cv::Mat LaneFilter(cv::Mat & inputMat);
+	
 	cv::Mat GrayscaleImage(cv::Mat &inputMat);
 	cv::Mat CannyEdgesDetector(cv::Mat &inputMat);
     std::vector<cv::Vec4i> HoughLinesDetector(cv::Mat &inputMat);
 	cv::Scalar FindMedianColorOfLane(cv::Mat &inputMat, std::vector<cv::Vec4i> laneLine);
-
+	void ImageSplitter(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat &originalImage);
 
 private:
 	cv::Mat element;
