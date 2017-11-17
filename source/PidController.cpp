@@ -36,6 +36,7 @@ double bezier_calc(double wheelAngle, double laneCenter, double laneAngle, doubl
 	PointTwo_x = PointThree_x - 30 * sin(laneAngle);
 	PointTwo_y = PointThree_y - 30 * cos(laneAngle);
 	//Step two, do the math.  Better now, that I found out the pow(a,b) function works by outputting a^b
+	//This algorithm now uses the tangent of the smoothest curve path to the center line
 	Result_x = (3 * pow(1 - progressPoint, 2) * (PointOne_x - PointZero_x)) + (6 * (1 - progressPoint)*progressPoint * (PointTwo_x - PointOne_x)) + (3 * pow(progressPoint, 2)*(PointThree_x - PointTwo_x));
 	Result_y = (3 * pow(1 - progressPoint, 2) * (PointOne_y - PointZero_y)) + (6 * (1 - progressPoint)*progressPoint * (PointTwo_y - PointOne_y)) + (3 * pow(progressPoint, 2)*(PointThree_y - PointTwo_y));
 	//Step three, do the monster math (use the resultant location to calculate an angle to which the wheels should steer)
@@ -48,8 +49,8 @@ double bezier_calc(double wheelAngle, double laneCenter, double laneAngle, doubl
 
 //some sanity checks
 //bezier_calc(0, 540, 0, 0.5); //should output with 0
-//bezier_calc(0, 600, 90, 0.5); //should output 55 (ish?)
-//bezier_calc(0, 480, -90, 0.5); //should output -55 (ish?)
+//bezier_calc(0, 600, 90, 0.5); //should output 45 (ish?)
+//bezier_calc(0, 480, -90, 0.5); //should output -45 (ish?)
 
 //some temp initial variable setting.  Eventually we will have to initialize this elsewhere based on real data
 //steerAngle = 0;
