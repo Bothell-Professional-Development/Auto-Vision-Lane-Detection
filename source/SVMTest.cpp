@@ -14,7 +14,7 @@
 #include <utility>
 #include <functional>
 
-#include <Windows.h>
+
 #include <ctime>
 
 
@@ -28,8 +28,6 @@ cv::Mat HOGHistogramWithTranspose(const cv::Mat& currentFrame);
 cv::Mat LPQHistogram(const cv::Mat& currentFrame);
 cv::Mat CSLBPHistogram(const cv::Mat& currentFrame);
 void showHistogram(const cv::Mat& histogram);
-void addTrainingDataAndLabels(string trainingDataPath, float label, vector<float> &labelsV, vector<Mat> &trainingHistogramsV);
-void trainSVMClassifier(string trainedSVMfilename, string positiveFilePath, string negativeFilePath, string identifier);
 std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, Mat &resizedImage, Mat &outputMat, cv::Ptr<SVM> &svm);
 void plotLanePoints(Mat &resizedImage, vector<Point> &leftLaneUnfilteredPoints, vector<Point> &rightLaneUnfilteredPoints);
 std::vector<float> findBestFittingCurve(std::vector<cv::Point> &lanePoints);
@@ -43,16 +41,12 @@ const int32_t HORIZONTAL_RESOLUTION = 1920 * imageResizeFactor;
 const int32_t VERTICAL_RESOLUTION = 1080 * imageResizeFactor;
 const int32_t BOX_WIDTH = 30 * imageResizeFactor;
 const int32_t BOX_HEIGHT = 30 * imageResizeFactor;
-//const string positiveRightFilePath = "D:/WorkFolder/LaneDetectionTrainingData/positiveRight/";
-const string positiveRightFilePath = "D:/PDP/SVMTrainingDataTool/positive/right/";
-const string negativeRightFilePath = "D:/PDP/SVMTrainingDataTool/negative/right/";
-//const string positiveLeftFilePath = "D:/WorkFolder/LaneDetectionTrainingData/positiveLeft/";
-//const string negativeFilePath = "D:/WorkFolder/LaneDetectionTrainingData/negative/";
-const string positiveLeftFilePath = "D:/PDP/SVMTrainingDataTool/positive/left/";
-const string negativeLeftFilePath = "D:/PDP/SVMTrainingDataTool/negative/left/";
 
+#if WIN32
 #define trainingFilePath(featureString, laneSide) "D:/PDP/SVMTrainingDataTool/SVM_" << featureString << "_" << laneSide << "Lane.xml"
-#define histogramFilePath(featureString, identifier) "D:/PDP/SVMTrainingDataTool/HistogramDistanceMatrix_" << featureString << "_" << identifier << ".jpg";
+#else
+#define trainingFilePath(featureString, laneSide) "/home/pi/Auto-Vision-Lane-Detection-2/SVM_" << featureString << "_" << laneSide << "Lane.xml"
+#endif // WIN32
 
 const int32_t  VERTICAL_REGION_UPPER = 600 * imageResizeFactor;
 const int32_t  VERTICAL_REGION_LOWER = 800 * imageResizeFactor;
@@ -79,25 +73,26 @@ std::wstring string_to_wstring(const std::string& text) {
 
 int main()
 {
-	std::cout << "Prog Start" << std::endl;
+	std::cout << "Prog Start " << CLOCKS_PER_SEC << std::endl;
 
 	stringstream trainedSVMLeftLanefilename;
 	stringstream trainedSVMRightLanefilename;
 	//trainedSVMLeftLanefilename << "D:/WorkFolder/LaneDetectionTrainingData/SVM_" << EnumStrings[featureTypeNum] << "_LeftLane.xml";
 	trainedSVMLeftLanefilename << trainingFilePath(EnumStrings[featureTypeNum], "Left");
-	//trainSVMClassifier(trainedSVMLeftLanefilename.str(), positiveLeftFilePath, negativeLeftFilePath, "Left");
-
+	
 	//trainedSVMRightLanefilename << "D:/WorkFolder/LaneDetectionTrainingData/SVM_" << EnumStrings[featureTypeNum] << "_RightLane.xml";
 	trainedSVMRightLanefilename << trainingFilePath(EnumStrings[featureTypeNum], "Right");
-	//trainSVMClassifier(trainedSVMRightLanefilename.str(), positiveRightFilePath, negativeRightFilePath, "Right");
-
-
+	
 	//Load video
 	cv::VideoCapture cap;
+#if WIN32
 	//cap.open("D:\\WorkFolder\\Auto-Vision-Lane-Detection-build\\vids\\test3.mp4");
 	//cap.open("D:/PDP/SVMTrainingDataTool/2.MP4");
 	//cap.open("D:\PDP\SVMTrainingDataTool\2.MP4");
 	cap.open("D:\\PDP\\SVMTrainingDataTool\\2.MP4");
+#else
+	cap.open("/home/pi/Auto-Vision-Lane-Detection-2/2.MP4");
+#endif // WIN32
 
 	if (!cap.isOpened()) // Check for invalid input
 	{
@@ -133,7 +128,7 @@ int main()
 	{
 		//Get the processing time per frame
 		newTime = clock();
-		timePF = newTime - oldTime;
+		timePF = (newTime - oldTime) / (CLOCKS_PER_SEC/1000);
 		oldTime = newTime;
 		fps = 1000 / timePF;
 		std::cout << "Processing time/frame " << frameCounter << " : " << timePF << " (" << fps << "fps)" << std::endl;
@@ -202,7 +197,9 @@ int main()
 	
 		//imwrite("D:/WorkFolder/LaneDetectionTrainingData/SVM_Results.jpg", outputMat);
 		//return -1;
+#if WIN32
 		imshow("Classification", outputMat);
+#endif
 		waitKey(1);
 	}
 	if (frameCounter != 0)
@@ -558,210 +555,6 @@ void showHistogram(const cv::Mat& histogram)
 	cv::waitKey(1);
 }
 
-void addTrainingDataAndLabels(string trainingDataPath, float label, vector<float> &labelsV, vector<Mat> &trainingHistogramsV)
-{
-	HANDLE hFind;
-	WIN32_FIND_DATA data;
-	wstring wideStr = string_to_wstring(trainingDataPath + "*.jpg");
-	vector<string> filenamesV;
-	hFind = FindFirstFile(wideStr.c_str(), &data);
-	if (hFind != INVALID_HANDLE_VALUE) {
-		int cnt = 1;
-		do {
-			size_t size = wcslen(data.cFileName);
-			char * buffer = new char[2 * size + 2];
-			wcstombs(buffer, data.cFileName, 2 * size + 2);
-			std::string file(buffer);
-			delete[] buffer;
-
-			cout << cnt << "  " << file << endl;
-			filenamesV.push_back(file);
-
-			cnt++;
-		} while (FindNextFile(hFind, &data));
-		FindClose(hFind);
-	}
-
-	Mat trainingImage, featureHistogramMat;
-	string fileNumber, fileExtension;
-	stringstream fileFull;
-	fileExtension = ".jpg";
-
-
-
-	for (int i = 0; i < filenamesV.size(); i++)
-	{
-		fileFull << trainingDataPath << filenamesV[i];
-		trainingImage = imread(fileFull.str(), CV_LOAD_IMAGE_GRAYSCALE);
-		trainingImage.convertTo(trainingImage, CV_32FC1);
-		trainingImage /= 255;
-
-		//for (int r = 0; r < trainingImage.rows; r++)
-		//{
-		//	for (int c = 0; c < trainingImage.cols; c++)
-		//	{
-		//		cout << trainingImage.at<float>(r, c) << "  ";
-		//	}
-		//	cout << endl;
-		//}
-
-
-		switch (featureTypeNum)
-		{
-		case LBP:
-			featureHistogramMat = LBPHistogram(trainingImage);
-			break;
-		case LPQ:
-			featureHistogramMat = LPQHistogram(trainingImage);
-			break;
-		case HOG:
-			featureHistogramMat = HOGHistogram(trainingImage);
-			break;
-		case CSLBP:
-			featureHistogramMat = CSLBPHistogram(trainingImage);
-			break;
-		default:
-			break;
-		}
-
-		fileFull.str("");
-		fileFull.clear();
-		labelsV.push_back(label);
-		trainingHistogramsV.push_back(featureHistogramMat);
-	}
-}
-
-void trainSVMClassifier(string trainedSVMfilename, string positiveFilePath, string negativeFilePath, string identifier)
-{
-
-	vector<float> labelsV; //We store the labels of the training data here
-	vector<Mat> trainingHistogramsV;
-	addTrainingDataAndLabels(positiveFilePath, 1.0, labelsV, trainingHistogramsV);
-	addTrainingDataAndLabels(negativeFilePath, -1.0, labelsV, trainingHistogramsV);
-
-	//Create compare histogram distance marix
-	Mat histogramDistMatrix = Mat::zeros(trainingHistogramsV.size(), trainingHistogramsV.size(), CV_32FC1);
-	double value;
-	for (int i = 0; i < trainingHistogramsV.size(); i++)
-	{
-		for (int j = 0; j < trainingHistogramsV.size(); j++)
-		{
-			value = compareHist(trainingHistogramsV[i], trainingHistogramsV[j], CV_COMP_BHATTACHARYYA);
-			if (value > 1) value = 1;
-			//cout << value << "   ";
-			histogramDistMatrix.at<float>(i, j) = value;
-
-		}
-		//cout << endl << endl;
-	}
-
-	imshow("dist Mat", histogramDistMatrix);
-	histogramDistMatrix *= 255;
-	histogramDistMatrix.convertTo(histogramDistMatrix, CV_8UC1);
-	stringstream histogramDistanceMatrixFilename;
-	//histogramDistanceMatrixFilename << "D:/WorkFolder/LaneDetectionTrainingData/HistogramDistanceMatrix_" << EnumStrings[featureTypeNum] << ".jpg";
-	//histogramDistanceMatrixFilename << "D:/PDP/SVMTrainingDataTool/HistogramDistanceMatrix_" << EnumStrings[featureTypeNum] << ".jpg";
-	histogramDistanceMatrixFilename << histogramFilePath(EnumStrings[featureTypeNum], identifier);
-	imwrite(histogramDistanceMatrixFilename.str(), histogramDistMatrix);
-	waitKey(0);
-
-	// Set up training data
-	Mat labelsMat(labelsV.size(), 1, CV_32SC1);
-	for (int i = 0; i < labelsMat.rows; i++)
-	{
-		labelsMat.at<int>(i, 0) = labelsV[i];
-	}
-
-	Mat trainingDataMat(labelsV.size(), trainingHistogramsV[0].rows, CV_32FC1); //The training matrix has every histogram loaded as a row
-	for (int r = 0; r < trainingDataMat.rows; r++)
-	{
-		for (int c = 0; c < trainingDataMat.cols; c++) //0-31
-		{
-			trainingDataMat.at<float>(r, c) = trainingHistogramsV[r].at<float>(c, 0);
-		}
-	}
-
-	//for (int r = 0; r < trainingDataMat.rows; r++)
-	//{
-	//	for (int c = 0; c < trainingDataMat.cols; c++)
-	//	{
-	//		cout << trainingDataMat.at<float>(r, c) << "  ";
-	//	}
-	//	cout << endl;
-	//}
-
-
-	//SVM is an abstract class now (OpenCV 3.0+) so we call SVM::create()
-	cv::Ptr<SVM> svm = SVM::create();
-
-	// Set up SVM's parameters
-	svm->setType(SVM::C_SVC);
-	//svm->setKernel(SVM::POLY);
-	//svm->setDegree(1.0);
-	//svm->setGamma(3.0);
-
-	svm->setKernel(SVM::LINEAR); //There is a bug with OpenCV, can't save and load a SVM with polynomial kernel. Not sure about other types yet
-
-
-								 //svm->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER, 100, 1e-6));
-	svm->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER + TermCriteria::EPS, 1000, 0.01));
-
-	// Train the SVM
-	Ptr<ml::TrainData> tData = ml::TrainData::create(trainingDataMat, ml::SampleTypes::ROW_SAMPLE, labelsMat);
-	svm->train(tData);
-	svm->save(trainedSVMfilename);
-
-	//Verify the SVM classifier 
-	//		vector<double> responseV;
-	//		Mat transposedMat;
-	//		for (int i = 0; i < trainingHistogramsV.size(); i++)
-	//		{
-	//			transpose(trainingHistogramsV[i], transposedMat);
-	//			responseV.push_back(svm->predict(transposedMat));
-	//			
-	////			cout << responseV[i] << endl;
-	//		}
-
-	//Output the result to a file
-	//ofstream outputFile;
-	//outputFile.open("D:/WorkFolder/LaneDetectionTrainingData/TrainingDataResponses.csv");
-	//string expected;
-	//for (int i = 0; i < responseV.size(); i++)
-	//{
-	//	if (labelsV[i]==1.0)
-	//		expected = "Lanes";
-	//	else
-	//		expected = "NonLanes";
-	//	outputFile << expected << "," << responseV[i] << endl;
-	//}
-
-
-	//Find accuracy of results on training data
-	//int TP = 0;
-	//int TN = 0;
-	//int FP = 0;
-	//int FN = 0;
-	//for (int i = 0; i < responseV.size(); i++)
-	//{
-	//	if (labelsV[i] == responseV[i])
-	//	{
-	//		TP++;
-	//	}
-	//	else
-	//	{
-	//		FN++;
-	//	}
-
-	//}
-	//float accuracy = (float)(TP + TN) / (TP + TN + FP + FN);
-	//cout << "Accuracy: " << accuracy << endl;
-	//outputFile << endl;
-	//outputFile << "TP" << "," << TP << endl;
-	//outputFile << "FN" << "," << FN << endl;
-	//outputFile << "Accuracy" << "," << accuracy << endl;
-
-}
-
 std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, Mat &resizedImage, Mat &outputMat, cv::Ptr<SVM> &svm)
 {
 	Mat sampleBox = Mat(BOX_WIDTH, BOX_HEIGHT, CV_32FC1);
@@ -890,7 +683,7 @@ std::vector<cv::Point> filterLanePoints(std::vector<cv::Point> &unfilteredPoints
 
 float distanceToLine(cv::Point line_start, cv::Point line_end, cv::Point point)
 {
-	float normalLength = _hypot(line_end.x - line_start.x, line_end.y - line_start.y);
+	float normalLength = hypot(line_end.x - line_start.x, line_end.y - line_start.y);
 	float distance = (double)((point.x - line_start.x) * (line_end.y - line_start.y) - (point.y - line_start.y) * (line_end.x - line_start.x)) / normalLength;
 	return abs(distance);
 }
