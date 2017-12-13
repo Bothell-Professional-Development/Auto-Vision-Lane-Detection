@@ -14,7 +14,6 @@
 #include <utility>
 #include <functional>
 
-
 #include <ctime>
 
 
@@ -86,10 +85,7 @@ int main()
 	//Load video
 	cv::VideoCapture cap;
 #if WIN32
-	//cap.open("D:\\WorkFolder\\Auto-Vision-Lane-Detection-build\\vids\\test3.mp4");
-	//cap.open("D:/PDP/SVMTrainingDataTool/2.MP4");
-	//cap.open("D:\PDP\SVMTrainingDataTool\2.MP4");
-	cap.open("D:\\PDP\\SVMTrainingDataTool\\2.MP4");
+	cap.open("D:/PDP/SVMTrainingDataTool/2.MP4");
 #else
 	cap.open("/home/pi/Auto-Vision-Lane-Detection-2/2.MP4");
 #endif // WIN32
