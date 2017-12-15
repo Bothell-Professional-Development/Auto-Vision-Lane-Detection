@@ -7,7 +7,8 @@ import java.awt.image.WritableRaster;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 
 import javax.imageio.ImageIO;
@@ -23,6 +24,8 @@ public class SVMTrainingDataHandler
     private static final String POSITIVE_FILE_PREFIX = "SVM_TRAIN_POSITIVE_";
     private static final String NEGATIVE_FILE_PREFIX = "SVM_TRAIN_NEGATIVE_";
     private static final String TRAINING_FILE_EXTENSION = ".jpg";
+    private static final String LEFT_SUBDIRECTORY = "/left";
+    private static final String RIGHT_SUBDIRECTORY = "/right";
     
     private int m_frameSkip;
     private int m_currentFrame;
@@ -127,20 +130,51 @@ public class SVMTrainingDataHandler
         return m_currentFrameBuffer;
     }
     
-    public boolean writeImagesToDisk(final HashSet< Pair<Integer, Integer> > selectedCells,
+    public boolean writeImagesToDisk(final HashSet< Pair<Integer, Integer> > positiveCells,
+                                     final HashSet< Pair<Integer, Integer> > negativeCells,
                                      final int horizontalCells,
                                      final int verticalCells,
                                      final Pair<Integer, Integer> topLeftRoI,
-                                     final Pair<Integer, Integer> botRightRoI)
+                                     final Pair<Integer, Integer> botRightRoI,
+                                     boolean regionOfInterestIsDivided)
     {
         boolean retVal = true;
         
         if(m_positiveOutputPath != null && m_negativeOutputPath != null)
-        {
+        {            
+            if(regionOfInterestIsDivided)
+            {
+                File posLeft = new File(m_positiveOutputPath.concat(LEFT_SUBDIRECTORY));
+                File posRight = new File(m_positiveOutputPath.concat(RIGHT_SUBDIRECTORY));
+                File negLeft = new File(m_negativeOutputPath.concat(LEFT_SUBDIRECTORY));
+                File negRight = new File(m_negativeOutputPath.concat(RIGHT_SUBDIRECTORY));
+                
+                if(!posLeft.isDirectory())
+                {
+                    posLeft.mkdir();
+                }                
+                
+                if(!posRight.isDirectory())
+                {
+                    posRight.mkdir();
+                }                
+                
+                if(!negLeft.isDirectory())
+                {
+                    negLeft.mkdir();
+                }                
+                
+                if(!negRight.isDirectory())
+                {
+                    negRight.mkdir();
+                }
+            }
+            
             BufferedImage currentFrame = getCurrentFrame();
             Raster frameRaster = currentFrame.getRaster();
             int cellWidth = frameRaster.getWidth() /  horizontalCells;
             int cellHeight = frameRaster.getHeight() / verticalCells;
+            int midCol = (botRightRoI.getFirst() + topLeftRoI.getFirst()) / 2 ;
             
             for(int row = topLeftRoI.getSecond(); row <= botRightRoI.getSecond(); ++row)
             {
@@ -154,36 +188,43 @@ public class SVMTrainingDataHandler
                     Pair<Integer, Integer> currentCell = new Pair<Integer, Integer>(column, row);
                     BufferedImage outImage = currentFrame.getSubimage(column * cellWidth, row * cellHeight, cellWidth, cellHeight);                    
                     
-                    if(selectedCells.contains(currentCell))
-                    {
-                        if(!writeImageToDisk(outImage,
-                                             m_positiveOutputPath,
-                                             POSITIVE_FILE_PREFIX,
-                                             m_positiveCounter))
-                        {
-                            retVal = false;
-                            break;
-                        }
-                        else
-                        {
-                            ++m_positiveCounter;
-                        }
-                    }
-                    else
-                    {
-                        if(!writeImageToDisk(outImage,
-                                             m_negativeOutputPath,
-                                             NEGATIVE_FILE_PREFIX,
-                                             m_negativeCounter))
-                        {
-                            retVal = false;
-                            break;
-                        }
-                        else
-                        {
-                            ++m_negativeCounter;
-                        }
-                    }
+                    boolean isPositiveCell = positiveCells.contains(currentCell);
+                    
+					if(isPositiveCell || negativeCells.contains(currentCell))
+					{
+						String path = isPositiveCell ? m_positiveOutputPath : m_negativeOutputPath;
+
+						if(regionOfInterestIsDivided)
+						{
+							if (column <= midCol)
+							{
+								path = path.concat(LEFT_SUBDIRECTORY);
+							}
+							else
+							{
+								path = path.concat(RIGHT_SUBDIRECTORY);
+							}
+						}
+
+						if(!writeImageToDisk(outImage,
+								             path,
+								             isPositiveCell ? POSITIVE_FILE_PREFIX : NEGATIVE_FILE_PREFIX,
+								             isPositiveCell ? m_positiveCounter : m_negativeCounter)) {
+							retVal = false;
+							break;
+						}
+						else
+						{
+							if(isPositiveCell)
+							{
+								++m_positiveCounter;
+							}
+							else
+							{
+								++m_negativeCounter;
+							}
+						}
+					}
                 }
             }
         }        
@@ -260,14 +301,30 @@ public class SVMTrainingDataHandler
                                                 }
                                             }
                                         };
-                                        
-        File[] fileList = new File(path).listFiles(fileFilter);
+
+    
+        ArrayList<File> fileList = new ArrayList<File>();
+        Collections.addAll(fileList, new File(path).listFiles(fileFilter));
         
-        if(fileList.length > 0)
+        File leftPath = new File(path.concat(LEFT_SUBDIRECTORY));
+        
+        if(leftPath.isDirectory())
         {
-            Arrays.sort(fileList);
+            Collections.addAll(fileList, leftPath.listFiles(fileFilter));
+        }
+        
+        File rightPath = new File(path.concat(RIGHT_SUBDIRECTORY));
+        
+        if(rightPath.isDirectory())
+        {
+            Collections.addAll(fileList, rightPath.listFiles(fileFilter));
+        }            
+        
+        if(fileList.size() > 0)
+        {
+            Collections.sort(fileList);
             
-            String filename = fileList[fileList.length - 1].getName();
+            String filename = fileList.get(fileList.size() - 1).getName();
             filename = filename.substring(filenamePrefix.length(),
                                           filename.length() - TRAINING_FILE_EXTENSION.length());
             

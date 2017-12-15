@@ -53,25 +53,33 @@ public class SVMTrainingDataGUI
         m_frame.pack();
     }
     
-    public void setGridDimensions(final int horizontalCells, final int verticalCells)
+    public void setGridDimensions(final int horizontalCells,
+                                  final int verticalCells)
     {
-        m_gridPanel.setGridDimensions(horizontalCells, verticalCells);
+        m_gridPanel.setGridDimensions(horizontalCells,
+                                      verticalCells);
     }
     
     public void setRegionOfInterest(final Pair<Integer, Integer> topLeft,
                                     final Pair<Integer, Integer> bottomRight)
     {
-        m_gridPanel.setRegionOfInterest(topLeft, bottomRight);
+        m_gridPanel.setRegionOfInterest(topLeft,
+                                        bottomRight);
     }
     
-    public void setGridColor(final Color gridColor)
+    public void setRegionOfInterestDivided(final boolean divideRegionOfInterest)
     {
-        m_gridPanel.setGridColor(gridColor);
+        m_gridPanel.setRegionOfInterestDivided(divideRegionOfInterest);
     }
     
-    public void setSelectedCellColor(final Color selectedCellColor)
+    public void setPostiveCellColor(final Color positiveCellColor)
     {
-        m_gridPanel.setSelectedCellColor(selectedCellColor);
+        m_gridPanel.setPositiveCellColor(positiveCellColor);
+    }
+    
+    public void setNegativeCellColor(final Color negativeCellColor)
+    {
+        m_gridPanel.setPositiveCellColor(negativeCellColor);
     }
     
     public InteractiveGridPanel getGridPanel()
@@ -79,7 +87,8 @@ public class SVMTrainingDataGUI
         return m_gridPanel;
     }
 
-    public void showEoFDialog() {
+    public void showEoFDialog()
+    {
         JOptionPane.showMessageDialog(m_frame,
                                      "End of video file has been reached!",
                                      "Finished!",
@@ -132,16 +141,18 @@ public class SVMTrainingDataGUI
                 
         fileMenu.add(openItem);
     
-        JMenu settingsMenu = new JMenu("Settings");        
-        JMenu gridSubMenu = createGridDimensionSubMenu();        
-        JMenuItem gridColorItem = createGridColorMenuItem();        
-        JMenuItem gridHighlightColorItem = createHighlightColorMenuItem();        
+        JMenu settingsMenu = new JMenu("Settings");
+        JMenu gridSubMenu = createGridDimensionSubMenu();
+        JMenu divideGridSubMenu = createDivideGridSubMenu();
+        JMenu gridColorSubMenu = createGridColorSubMenu();
         JMenuItem frameSkipItem = createFrameSkipMenuItem();
-        
+        JMenuItem setRegionOfInterestItem = createSetRegionOfInterestItem();
+
         settingsMenu.add(gridSubMenu);
-        settingsMenu.add(gridColorItem);
-        settingsMenu.add(gridHighlightColorItem);
-        settingsMenu.add(frameSkipItem);        
+        settingsMenu.add(divideGridSubMenu);
+        settingsMenu.add(gridColorSubMenu);
+        settingsMenu.add(frameSkipItem);
+        settingsMenu.add(setRegionOfInterestItem);
         
         menuBar.add(fileMenu);
         menuBar.add(settingsMenu);
@@ -160,7 +171,8 @@ public class SVMTrainingDataGUI
                                                     public void actionPerformed(ActionEvent e)
                                                     {
                                                         if(!m_parentApplication.writeImagesToDisk(m_gridPanel.getTopLeftRoI(),
-                                                                                                  m_gridPanel.getBottomRightRoI()))
+                                                                                                  m_gridPanel.getBottomRightRoI(),
+                                                                                                  m_gridPanel.isRegionOfInterestDivided()))
                                                         {
                                                             showWriteErrorDialog();
                                                         }
@@ -170,7 +182,7 @@ public class SVMTrainingDataGUI
                                                         }
                                                     }
                                                 }
-                                         );        
+                                         );
         return generateButton;
     }
     
@@ -186,7 +198,7 @@ public class SVMTrainingDataGUI
                                                {
                                                    boolean displayNext = true;
                                                    
-                                                   if(m_gridPanel.getSelectedCells().size() > 0)
+                                                   if(m_gridPanel.getPositiveCells().size() > 0 || m_gridPanel.getNegativeCells().size() > 0)
                                                    {
                                                        String message = "There are selected grid cells. If you continue, no training files will be written!";
                                                        int decision = JOptionPane.showConfirmDialog(m_frame, 
@@ -239,36 +251,72 @@ public class SVMTrainingDataGUI
         return openItem;
     }
     
-    private JMenuItem createGridColorMenuItem()
+    private JMenuItem createPrimaryGridColorMenuItem()
     {
-        JMenuItem gridColorItem = new JMenuItem("Grid Color");
+        JMenuItem gridColorItem = new JMenuItem("Primary/Left Grid Color");
         gridColorItem.addActionListener(new ActionListener()
                                             {
                                                 @Override
                                                 public void actionPerformed(ActionEvent arg0)
                                                 {
                                                     Color color = JColorChooser.showDialog(m_frame,
-                                                                                           "Grid Color",
-                                                                                           InteractiveGridPanel.DEFAULT_GRID_COLOR);
-                                                    m_gridPanel.setGridColor(color);
+                                                                                           "Primary/Left Grid Color",
+                                                                                           InteractiveGridPanel.DEFAULT_PRIMARY_GRID_COLOR);
+                                                    m_gridPanel.setPrimaryGridColor(color);
+                                                }
+                                            }
+                                       );
+        return gridColorItem;
+    }    
+    
+    private JMenuItem createSecondaryGridColorMenuItem()
+    {
+        JMenuItem gridColorItem = new JMenuItem("Right Grid Color");
+        gridColorItem.addActionListener(new ActionListener()
+                                            {
+                                                @Override
+                                                public void actionPerformed(ActionEvent arg0)
+                                                {
+                                                    Color color = JColorChooser.showDialog(m_frame,
+                                                                                           "Left Grid Color",
+                                                                                           InteractiveGridPanel.DEFAULT_SECONDARY_GRID_COLOR);
+                                                    m_gridPanel.setSecondaryGridColor(color);
                                                 }
                                             }
                                        );
         return gridColorItem;
     }
     
-    private JMenuItem createHighlightColorMenuItem()
+    private JMenuItem createPositiveSelectionColorMenuItem()
     {
-        JMenuItem gridHighlightColorItem = new JMenuItem("Grid Highlight Color");
+        JMenuItem gridHighlightColorItem = new JMenuItem("Positive Selection Color");
         gridHighlightColorItem.addActionListener(new ActionListener()
                                                      {
-                                                           @Override
+                                                         @Override
                                                          public void actionPerformed(ActionEvent arg0)
                                                          {
                                                              Color color = JColorChooser.showDialog(m_frame,
-                                                                                                    "Grid Highlight Color",
-                                                                                                    InteractiveGridPanel.DEFAULT_SELECTED_CELL_COLOR);
-                                                             m_gridPanel.setSelectedCellColor(color);
+                                                                                                    "Positive Selection Color",
+                                                                                                    InteractiveGridPanel.DEFAULT_POSITIVE_CELL_COLOR);
+                                                             m_gridPanel.setPositiveCellColor(color);
+                                                         }
+                                                     }
+                                                );
+        return gridHighlightColorItem;
+    }    
+    
+    private JMenuItem createNegativeSelectionColorMenuItem()
+    {
+        JMenuItem gridHighlightColorItem = new JMenuItem("Negative Selection Color");
+        gridHighlightColorItem.addActionListener(new ActionListener()
+                                                     {
+                                                         @Override
+                                                         public void actionPerformed(ActionEvent arg0)
+                                                         {
+                                                             Color color = JColorChooser.showDialog(m_frame,
+                                                                                                    "Negative Selection Color",
+                                                                                                    InteractiveGridPanel.DEFAULT_NEGATIVE_CELL_COLOR);
+                                                             m_gridPanel.setNegativeCellColor(color);
                                                          }
                                                      }
                                                 );
@@ -308,6 +356,29 @@ public class SVMTrainingDataGUI
                                             }
                                        );
         return frameSkipItem;
+    }
+    
+    private JMenuItem createSetRegionOfInterestItem()
+    {
+        JMenuItem setRegionOfInterestItem = new JMenuItem("Set RoI");
+        setRegionOfInterestItem.addActionListener(new ActionListener()
+                                                      {
+                                                          @Override
+                                                          public void actionPerformed(ActionEvent arg0)
+                                                          {
+                                                              m_gridPanel.setGridDimensions(m_gridPanel.getNumHorizontalCells(),
+                                                                                            m_gridPanel.getNumVerticalCells());
+                                                              
+                                                              JOptionPane.showMessageDialog(m_frame,
+                                                                      "Drag area in window to select desired region of interest.",
+                                                                      "Select RoI",
+                                                                      JOptionPane.INFORMATION_MESSAGE);
+                                                              
+                                                              m_gridPanel.startListeningForRegionOfInterest();
+                                                          }
+                                                      }
+                                                 );
+        return setRegionOfInterestItem;
     }
     
     private JMenu createGridDimensionSubMenu()
@@ -353,5 +424,48 @@ public class SVMTrainingDataGUI
         gridDimensionMenu.add(oneTwentyByOneTwenty);
         
         return gridDimensionMenu;
+    }
+    
+    private JMenu createDivideGridSubMenu()
+    {
+        JMenu divideGridMenu = new JMenu("Divide Grid");
+        ButtonGroup buttons = new ButtonGroup();
+        
+        JRadioButtonMenuItem yesButton = new JRadioButtonMenuItem("Yes", true);
+        JRadioButtonMenuItem noButton = new JRadioButtonMenuItem("No", true);
+        
+        ActionListener radioListener = new ActionListener()
+                                           {
+                                               @Override
+                                               public void actionPerformed(ActionEvent arg0)
+                                               {
+                                                   AbstractButton radioOption = (AbstractButton) arg0.getSource();
+                                                   String label = radioOption.getText();
+                                                   m_gridPanel.setRegionOfInterestDivided(label.equals("Yes") ? true : false);                                               
+                                               }                                                    
+                                           };
+                                           
+        yesButton.addActionListener(radioListener);
+        noButton.addActionListener(radioListener);
+        
+        buttons.add(yesButton);
+        buttons.add(noButton);
+        
+        divideGridMenu.add(yesButton);
+        divideGridMenu.add(noButton);
+        
+        return divideGridMenu;
+    }
+    
+    private JMenu createGridColorSubMenu()
+    {
+        JMenu colorMenu = new JMenu("Grid Colors");
+
+        colorMenu.add(createPrimaryGridColorMenuItem());
+        colorMenu.add(createSecondaryGridColorMenuItem());
+        colorMenu.add(createPositiveSelectionColorMenuItem());
+        colorMenu.add(createNegativeSelectionColorMenuItem());
+        
+        return colorMenu;
     }
 }

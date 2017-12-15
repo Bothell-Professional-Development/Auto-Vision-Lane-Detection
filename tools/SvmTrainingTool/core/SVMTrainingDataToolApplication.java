@@ -10,8 +10,8 @@ public class SVMTrainingDataToolApplication
     private static final int DEFAULT_FRAMES_TO_SKIP = 150;
     private static final int DEFAULT_HORIZONTAL_GRID_CELLS = 64;
     private static final int DEFAULT_VERTICAL_GRID_CELLS = 36;
-    private static final Pair<Integer, Integer> DEFAULT_ROI_TOP_LEFT = new Pair<Integer, Integer>(17, 17);
-    private static final Pair<Integer, Integer> DEFAULT_ROI_BOT_RIGHT = new Pair<Integer, Integer>(48, 25);
+    private static final Pair<Integer, Integer> DEFAULT_ROI_TOP_LEFT = new Pair<Integer, Integer>(19, 20);
+    private static final Pair<Integer, Integer> DEFAULT_ROI_BOT_RIGHT = new Pair<Integer, Integer>(46, 25);
     
     private SVMTrainingDataHandler m_handler;
     private SVMTrainingDataGUI m_gui;
@@ -26,6 +26,7 @@ public class SVMTrainingDataToolApplication
                           DEFAULT_VERTICAL_GRID_CELLS);
         m_gui.setRegionOfInterest(DEFAULT_ROI_TOP_LEFT, 
                                   DEFAULT_ROI_BOT_RIGHT);
+        m_gui.setRegionOfInterestDivided(true);
     }
     
     public boolean setSourceFile(final String filename)
@@ -79,13 +80,15 @@ public class SVMTrainingDataToolApplication
     }
 
     public boolean writeImagesToDisk(final Pair<Integer, Integer> topLeftRoI,
-                                     final Pair<Integer, Integer> botRightRoI)
+                                     final Pair<Integer, Integer> botRightRoI,
+                                     final boolean regionOfInterestIsDivided)
     {
-        return m_handler.writeImagesToDisk(m_gui.getGridPanel().getSelectedCells(),
+        return m_handler.writeImagesToDisk(m_gui.getGridPanel().getPositiveCells(),
+                                           m_gui.getGridPanel().getNegativeCells(),
                                            m_gui.getGridPanel().getNumHorizontalCells(),
                                            m_gui.getGridPanel().getNumVerticalCells(),
                                            topLeftRoI,
-                                           botRightRoI);
+                                           botRightRoI,
+                                           regionOfInterestIsDivided);
     }    
 }
- 
