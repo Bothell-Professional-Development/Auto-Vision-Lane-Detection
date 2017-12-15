@@ -559,8 +559,8 @@ public class InteractiveGridPanel extends JPanel
         {
             if(clickedCell != null)
             {
-                if(isPositiveSelection ? !m_positiveCells.contains(clickedCell) :
-                	                     !m_negativeCells.contains(clickedCell))
+                if(!m_positiveCells.contains(clickedCell) &&
+                   !m_negativeCells.contains(clickedCell))
                 {
                 	if(isPositiveSelection)
                 	{
@@ -578,11 +578,12 @@ public class InteractiveGridPanel extends JPanel
                 }
                 else
                 {
-                	if(isPositiveSelection)
+                	if(m_positiveCells.contains(clickedCell))
                 	{
-                        m_positiveCells.remove(clickedCell);
+                		m_positiveCells.remove(clickedCell);
                 	}
-                	else
+                	
+                	if(m_negativeCells.contains(clickedCell))
                 	{
                 		m_negativeCells.remove(clickedCell);
                 	}
