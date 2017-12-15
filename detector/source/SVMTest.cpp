@@ -9,13 +9,14 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/ml.hpp>
 
+#include "ConfigFile.h"
+#include "generated.h"
+
 #include <iostream> //for make_pair
 #include <fstream> //for ofstream
 #include <utility>
 #include <functional>
-
 #include <ctime>
-
 
 using namespace cv;
 using namespace cv::ml;
@@ -41,12 +42,6 @@ const int32_t VERTICAL_RESOLUTION = 1080 * imageResizeFactor;
 const int32_t BOX_WIDTH = 30 * imageResizeFactor;
 const int32_t BOX_HEIGHT = 30 * imageResizeFactor;
 
-#if WIN32
-#define trainingFilePath(featureString, laneSide) "D:/PDP/SVMTrainingDataTool/SVM_" << featureString << "_" << laneSide << "Lane.xml"
-#else
-#define trainingFilePath(featureString, laneSide) "/home/pi/Auto-Vision-Lane-Detection-2/SVM_" << featureString << "_" << laneSide << "Lane.xml"
-#endif // WIN32
-
 const int32_t  VERTICAL_REGION_UPPER = 600 * imageResizeFactor;
 const int32_t  VERTICAL_REGION_LOWER = 800 * imageResizeFactor;
 const int32_t  HORIZONTAL_REGION_LEFT = 600 * imageResizeFactor;
@@ -59,10 +54,10 @@ typedef enum {
 	HOG, // is 2
 	CSLBP
 };
+
 const int featureTypeNum = HOG;  //Choose feature type
 const int pointDistanceFromLaneThreshold = 20 * imageResizeFactor;
 static const char * EnumStrings[] = { "LBP", "LPQ", "HOG", "CSLBP" };
-
 
 
 std::wstring string_to_wstring(const std::string& text) {
@@ -72,24 +67,12 @@ std::wstring string_to_wstring(const std::string& text) {
 
 int main()
 {
-	std::cout << "Prog Start " << CLOCKS_PER_SEC << std::endl;
+	common_lib::ConfigFile cfgFile;
+	cfgFile.pullValuesFromFile(CFG_FILE_PATH);
 
-	stringstream trainedSVMLeftLanefilename;
-	stringstream trainedSVMRightLanefilename;
-	//trainedSVMLeftLanefilename << "D:/WorkFolder/LaneDetectionTrainingData/SVM_" << EnumStrings[featureTypeNum] << "_LeftLane.xml";
-	trainedSVMLeftLanefilename << trainingFilePath(EnumStrings[featureTypeNum], "Left");
-	
-	//trainedSVMRightLanefilename << "D:/WorkFolder/LaneDetectionTrainingData/SVM_" << EnumStrings[featureTypeNum] << "_RightLane.xml";
-	trainedSVMRightLanefilename << trainingFilePath(EnumStrings[featureTypeNum], "Right");
-	
 	//Load video
 	cv::VideoCapture cap;
-#if WIN32
-	cap.open("D:/PDP/SVMTrainingDataTool/2.MP4");
-#else
-	cap.open("/home/pi/Auto-Vision-Lane-Detection-2/2.MP4");
-#endif // WIN32
-
+	cap.open(cfgFile.readValueOrDefault("DETECTOR_INPUT", ""));
 	if (!cap.isOpened()) // Check for invalid input
 	{
 		std::cout << "Could not open or find the video file" << std::endl;
@@ -98,10 +81,10 @@ int main()
 
 	//Create and load already trained SVM classifier
 	cv::Ptr<SVM> svmLeft = SVM::create();
-	svmLeft = SVM::load(trainedSVMLeftLanefilename.str());
+	svmLeft = SVM::load(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", ""));
 
 	cv::Ptr<SVM> svmRight = SVM::create();
-	svmRight = SVM::load(trainedSVMRightLanefilename.str());
+	svmRight = SVM::load(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", ""));
 	
 	cv::Mat frame, resizedImage, outputMat;
 
