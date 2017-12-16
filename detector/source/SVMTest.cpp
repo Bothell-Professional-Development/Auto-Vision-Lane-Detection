@@ -1,8 +1,6 @@
 // SVMTest.cpp : Defines the entry point for the console application.
 //
 
-
-
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include "opencv2/imgcodecs.hpp"
@@ -13,19 +11,22 @@
 #include <fstream> //for ofstream
 #include <utility>
 #include <functional>
+#include <direct.h> //_getcwd
 
 #include <ctime>
+#ifdef _WIN32
+#include <io.h> //Check if file exists
+#define access    _access_s
+#else
+#include <unistd.h>
+#endif
 
 
 using namespace cv;
 using namespace cv::ml;
 using namespace std;
 
-cv::Mat LBPHistogram(const cv::Mat& currentFrameSegment);
-cv::Mat HOGHistogram(const cv::Mat& currentFrame);
-cv::Mat HOGHistogramWithTranspose(const cv::Mat& currentFrame);
-cv::Mat LPQHistogram(const cv::Mat& currentFrame);
-cv::Mat CSLBPHistogram(const cv::Mat& currentFrame);
+cv::Mat HOGHistogramWithTranspose(const cv::Mat& currentFrame);  //Used for testing. Without transpose is used for training
 void showHistogram(const cv::Mat& histogram);
 std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, Mat &resizedImage, Mat &outputMat, cv::Ptr<SVM> &svm);
 void plotLanePoints(Mat &resizedImage, vector<Point> &leftLaneUnfilteredPoints, vector<Point> &rightLaneUnfilteredPoints);
@@ -34,35 +35,30 @@ std::vector<cv::Point> filterLanePoints(std::vector<cv::Point> &unfilteredPoints
 float euclideanDist(Point& p, Point& q);
 float distanceToLine(cv::Point line_start, cv::Point line_end, cv::Point point);
 cv::Point findCentroidOfLaneArea(int rowStart, int columnStart, cv::Mat &sampleBox);
+bool linesIntersection(cv::Point o1, cv::Point p1, cv::Point o2, cv::Point p2, cv::Point &r);
+int getCenterOfLanes(cv::Point leftLaneStartPoint, cv::Point leftLaneEndPoint, cv::Point rightLaneStartPoint, cv::Point rightLaneEndPoint);
 
-float imageResizeFactor = 1;
+float imageResizeFactor = 0.5;
 const int32_t HORIZONTAL_RESOLUTION = 1920 * imageResizeFactor;
 const int32_t VERTICAL_RESOLUTION = 1080 * imageResizeFactor;
 const int32_t BOX_WIDTH = 30 * imageResizeFactor;
 const int32_t BOX_HEIGHT = 30 * imageResizeFactor;
 
 #if WIN32
-#define trainingFilePath(featureString, laneSide) "D:/PDP/SVMTrainingDataTool/SVM_" << featureString << "_" << laneSide << "Lane.xml"
+#define trainingFilePath(path, featureString, laneSide) path << "/SVM_" << featureString << "_" << laneSide << "Lane.xml"
 #else
-#define trainingFilePath(featureString, laneSide) "/home/pi/Auto-Vision-Lane-Detection-2/SVM_" << featureString << "_" << laneSide << "Lane.xml"
+#define trainingFilePath(path, featureString, laneSide) path << "/SVM_" << featureString << "_" << laneSide << "Lane.xml"
 #endif // WIN32
+
 
 const int32_t  VERTICAL_REGION_UPPER = 600 * imageResizeFactor;
 const int32_t  VERTICAL_REGION_LOWER = 800 * imageResizeFactor;
 const int32_t  HORIZONTAL_REGION_LEFT = 600 * imageResizeFactor;
 const int32_t  HORIZONTAL_REGION_RIGHT = 1400 * imageResizeFactor;
 const int32_t  HORIZONTAL_CENTER = 960 * imageResizeFactor;
+int dynamicCenterOfLanesXval = HORIZONTAL_CENTER;
 
-typedef enum {
-	LBP, // is 0
-	LPQ, // is 1
-	HOG, // is 2
-	CSLBP
-};
-const int featureTypeNum = HOG;  //Choose feature type
 const int pointDistanceFromLaneThreshold = 20 * imageResizeFactor;
-static const char * EnumStrings[] = { "LBP", "LPQ", "HOG", "CSLBP" };
-
 
 
 std::wstring string_to_wstring(const std::string& text) {
@@ -72,20 +68,24 @@ std::wstring string_to_wstring(const std::string& text) {
 
 int main()
 {
+	
+	char cCurrentPath[200];
+	_getcwd(cCurrentPath, sizeof(cCurrentPath));
+	stringstream SVMinputFolder;
+	SVMinputFolder << cCurrentPath << "/../SVMOutput";
+	
 	std::cout << "Prog Start " << CLOCKS_PER_SEC << std::endl;
 
 	stringstream trainedSVMLeftLanefilename;
 	stringstream trainedSVMRightLanefilename;
-	//trainedSVMLeftLanefilename << "D:/WorkFolder/LaneDetectionTrainingData/SVM_" << EnumStrings[featureTypeNum] << "_LeftLane.xml";
-	trainedSVMLeftLanefilename << trainingFilePath(EnumStrings[featureTypeNum], "Left");
+	trainedSVMLeftLanefilename << trainingFilePath(SVMinputFolder.str(), "HOG", "Left");
 	
-	//trainedSVMRightLanefilename << "D:/WorkFolder/LaneDetectionTrainingData/SVM_" << EnumStrings[featureTypeNum] << "_RightLane.xml";
-	trainedSVMRightLanefilename << trainingFilePath(EnumStrings[featureTypeNum], "Right");
+	trainedSVMRightLanefilename << trainingFilePath(SVMinputFolder.str(), "HOG", "Right");
 	
 	//Load video
 	cv::VideoCapture cap;
 #if WIN32
-	cap.open("D:/PDP/SVMTrainingDataTool/2.MP4");
+	cap.open("D:/WorkFolder/LaneDetectionTrainingData/2.MP4");
 #else
 	cap.open("/home/pi/Auto-Vision-Lane-Detection-2/2.MP4");
 #endif // WIN32
@@ -97,12 +97,30 @@ int main()
 	}
 
 	//Create and load already trained SVM classifier
+	//Check if file exists
+	
+	if (access(trainedSVMLeftLanefilename.str().c_str(), 0) != 0)
+	{
+		std::cout << "Left SVM file doesn't exist" << std::endl;
+		return -1;
+	}
+	if (access(trainedSVMRightLanefilename.str().c_str(), 0) != 0)
+	{
+		std::cout << "Right SVM file doesn't exist" << std::endl;
+		return -1;
+	}
 	cv::Ptr<SVM> svmLeft = SVM::create();
 	svmLeft = SVM::load(trainedSVMLeftLanefilename.str());
-
+	
 	cv::Ptr<SVM> svmRight = SVM::create();
 	svmRight = SVM::load(trainedSVMRightLanefilename.str());
 	
+	if (svmLeft->empty() || svmRight->empty())
+	{
+		std::cout << "SVM file corrupted" << std::endl;
+		return -1;
+	}
+
 	cv::Mat frame, resizedImage, outputMat;
 
 	vector<Point> leftLaneUnfilteredPoints, rightLaneUnfilteredPoints;
@@ -137,7 +155,6 @@ int main()
 		resizedImage.convertTo(resizedImage, CV_32FC1); //Grayscale
 		resizedImage /= 255;
 
-
 		//Only for visualization purposes. Should be removed from final product
 		resizedImage.convertTo(outputMat, CV_32FC3);
 		cvtColor(outputMat, outputMat, CV_GRAY2BGR);
@@ -150,8 +167,9 @@ int main()
 		//imshow("ROI", resizedImage);
 		//waitKey(0);
 
-		leftLaneUnfilteredPoints = getSVMPrediction(HORIZONTAL_REGION_LEFT, HORIZONTAL_CENTER, resizedImage, outputMat, svmLeft);
-		rightLaneUnfilteredPoints = getSVMPrediction(HORIZONTAL_CENTER, HORIZONTAL_REGION_RIGHT, resizedImage, outputMat, svmRight);
+		
+		leftLaneUnfilteredPoints = getSVMPrediction(HORIZONTAL_REGION_LEFT, dynamicCenterOfLanesXval, resizedImage, outputMat, svmLeft);
+		rightLaneUnfilteredPoints = getSVMPrediction(dynamicCenterOfLanesXval, HORIZONTAL_REGION_RIGHT, resizedImage, outputMat, svmRight);
 		totalPointsFound += leftLaneUnfilteredPoints.size() + rightLaneUnfilteredPoints.size();
 		
 		//Find a crude line first
@@ -187,7 +205,10 @@ int main()
 				line(outputMat, rightLaneStartPoint, rightLaneEndPoint, Scalar(1, 0, 0), 1, 8);
 			}
 		}
+		
 		plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
+		//dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
+		line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
 		//outputMat *= 255;
 		//outputMat.convertTo(outputMat, CV_8UC3); 
 	
@@ -195,8 +216,9 @@ int main()
 		//return -1;
 #if WIN32
 		imshow("Classification", outputMat);
-#endif
 		waitKey(1);
+#endif
+		
 	}
 	if (frameCounter != 0)
 	{
@@ -210,52 +232,6 @@ int main()
 
 
 
-cv::Mat LBPHistogram(const cv::Mat& currentFrameSegment)
-{
-	int i, j, k, l;
-	cv::Mat hist = cv::Mat::zeros(32, 1, CV_32FC1);  ////32 bins	
-	std::stringstream bin_pat;
-
-	//Find the upper left and lower right corner of the blob's bounding box
-
-	for (int i=1; i<currentFrameSegment.rows-3; i++)
-	{
-		for (int j=1; j<currentFrameSegment.cols-3; j++)
-		{
-			for (k = (i - 1); k<(i + 2); k++)
-			{
-				for (l = (j - 1); l<(j + 2); l++)
-				{
-					if (k == i && l == j) continue;
-					else
-					{
-						if (currentFrameSegment.at<float>(i, j) >= currentFrameSegment.at<float>(k, l))
-							bin_pat << 1;
-						else bin_pat << 0;
-					}
-				}
-			}
-
-			double result = 0.0;
-			int pow = 1;
-			for (k = bin_pat.str().length() - 1; k >= 0; --k, pow <<= 1)
-				result += (bin_pat.str().at(k) - '0') * pow;
-
-			result /= (255.0 / hist.rows);
-			int res = (int)result;
-			if (res == hist.rows) res--;
-			hist.at<float>(res, 0) += 1.0;
-
-			bin_pat.str("");
-			bin_pat.clear();
-			
-		}
-	}
-
-	//showHistogram(hist);
-
-	return hist;
-}
 
 cv::Mat HOGHistogramWithTranspose(const cv::Mat& currentFrame)
 {
@@ -306,219 +282,11 @@ cv::Mat HOGHistogramWithTranspose(const cv::Mat& currentFrame)
 	return hist;
 }
 
-cv::Mat HOGHistogram(const cv::Mat& currentFrame)
-{
-	//Mat newFrame;
-	//currentFrame.convertTo(newFrame, CV_32FC1);
-	//newFrame /= 255;
-
-	cv::Mat inputM = cv::Mat::zeros(currentFrame.size(), currentFrame.type());
-	int i, j, k, l;
-
-	cv::Mat hist = cv::Mat::zeros(32, 1, CV_32FC1);  ////32 bins	
-	std::stringstream bin_pat;
-
-	//Find the upper left and lower right corner of the blob's bounding box
-
-	int upper_y = 0;
-	int left_x = 0;
-	int lower_y = currentFrame.rows;
-	int right_x = currentFrame.cols;
-
-	double step = 360.0 / hist.rows;
-
-	for (i = upper_y + 1; i<lower_y - 1; i++)
-	{
-		for (j = left_x + 1; j<right_x - 1; j++)
-		{
-
-			inputM.at<float>(i, j) = currentFrame.at<float>(i, j);
-
-			double xDiff = currentFrame.at<float>(i + 1, j) - currentFrame.at<float>(i - 1, j);
-			double yDiff = currentFrame.at<float>(i, j + 1) - currentFrame.at<float>(i, j - 1);
-
-			double magnitude = sqrt(xDiff*xDiff + yDiff*yDiff);
-			double angle = atan2(xDiff, yDiff) * 180 / CV_PI + 180.0;  //in degrees, atan2 is from -p to +p
-
-			double result = angle / ((360.0 / hist.rows));
-			int res = (int)result;
-			if (res == hist.rows) res--;
-			hist.at<float>(res, 0) += magnitude;
-
-		}
-	}
-
-	//cv::imshow("input", inputM);
-	//cv::waitKey(1);	
-	//showHistogram(hist);
-
-	return hist;
-}
-
-cv::Mat LPQHistogram(const cv::Mat& currentFrame)
-{
-
-
-	
-	cv::Mat inputM = cv::Mat::zeros(currentFrame.size(), currentFrame.type());
-	int i, j, k, l, m;
-	
-
-	cv::Mat hist = cv::Mat::zeros(32, 1, CV_32FC1);  ////32 bins	
-	std::stringstream bin_pat;
-
-	
-
-	int upper_y = 0;
-	int left_x = 0;
-	int lower_y = currentFrame.rows;
-	int right_x = currentFrame.cols;
-
-	int nr = 7.0;
-	double a = 1.0 / nr;
-
-	std::vector<std::pair<double, double>> frequencyV;
-	frequencyV.push_back(pair<double, double>(a, 0));
-	frequencyV.push_back(pair<double, double>(0, a));
-	frequencyV.push_back(pair<double, double>(a, a));
-	frequencyV.push_back(pair<double, double>(a, -a));
-
-	for (i = upper_y; i<lower_y; i++)
-	{
-		for (j = left_x; j<right_x; j++)
-		{
-			/*std::cout << i << "  " << j << std::endl;
-			if (i==145 && j == 148)
-			cv::waitKey();*/
-
-				inputM.at<float>(i, j) = currentFrame.at<float>(i, j);
-
-				for (m = 0; m<frequencyV.size(); m++)
-				{
-					double realVal = 0.0;
-					double imagVal = 0.0;
-					int xc = 0, yc = 0;
-					for (k = i - (int)(nr / 2.0); k<i + (int)(nr / 2.0) + 1; k++)
-					{
-						for (l = j - (int)(nr / 2.0); l<j + (int)(nr / 2.0) + 1; l++)
-						{
-							if ((k == i && l == j) || k<0 || l<0 || k>currentFrame.rows - 1 || l>currentFrame.cols - 1)  continue;
-							else
-							{
-
-								double theta = -2.0*CV_PI*(frequencyV.at(m).first*(k - i) + frequencyV.at(m).second*(l - j));
-								double r = currentFrame.at<float>(k, l);
-
-								realVal += r*cos(theta);
-								imagVal += r*sin(theta);
-
-								yc++;
-							}
-						}
-						xc++;
-					}
-
-					if (realVal > 0) bin_pat << 1;
-					else bin_pat << 0;
-
-					if (imagVal > 0) bin_pat << 1;
-					else bin_pat << 0;
-
-					//std::cout << realVal << "\t" << imagVal << "\n";
-				}
-
-				double result = 0.0;
-				int pow = 1;
-				for (k = bin_pat.str().length() - 1; k >= 0; --k, pow <<= 1)
-					result += (bin_pat.str().at(k) - '0') * pow;
-
-				result /= (255.0 / hist.rows);
-				int res = (int)result;
-				if (res == hist.rows) res--;
-				hist.at<float>(res, 0) += 1.0;
-
-				bin_pat.str("");
-				bin_pat.clear();
-			
-		}
-	}
-
-	//cv::imshow("input", inputM);
-	//cv::waitKey(1);
-
-	//showHistogram(hist);
-
-	return hist;
-}
-
-cv::Mat CSLBPHistogram(const cv::Mat& currentFrame)
-{
-	cv::Mat inputM = cv::Mat::zeros(currentFrame.size(), currentFrame.type());
-	int i, j, k, l;
-	
-
-	cv::Mat hist = cv::Mat::zeros(16, 1, CV_32FC1);  ////16 bins	
-	std::stringstream bin_pat;
-
-	
-	int upper_y = 0;
-	int left_x = 0;
-	int lower_y = currentFrame.rows;
-	int right_x = currentFrame.cols;
-
-	double thresh = 0.05; ////threshold for flat regions
-
-	for (i = upper_y+2; i<lower_y-2; i++)
-	{
-		for (j = left_x+2; j<right_x-2; j++)
-		{
-				inputM.at<float>(i, j) = currentFrame.at<float>(i, j);
-				for (k = (i - 1); k<(i + 2); k++)
-				{
-					for (l = (j - 1); l<(j + 2); l++)
-					{
-						if (k == i && l == j) continue;
-						else
-						{
-							double diff = abs(currentFrame.at<float>(i, j) - currentFrame.at<float>(k, l));
-							//std::cout << currentFrame.at<float>(i,j) << "\t" << currentFrame.at<float>(k,l) << "\t" << diff << "\n";
-
-							if (diff > thresh)
-								bin_pat << 1;
-							else bin_pat << 0;
-						}
-					}
-				}
-
-				//binCounter++;
-				double result = 0.0;
-				int pow = 1;
-				for (k = bin_pat.str().length() - 1; k >= 0; --k, pow <<= 1)
-					result += (bin_pat.str().at(k) - '0') * pow;
-
-				result /= (255.0 / hist.rows);
-				int res = (int)result;
-				if (res == hist.rows) res--;
-				hist.at<float>(res, 0) += 1.0;
-
-				bin_pat.str("");
-				bin_pat.clear();
-			
-		}
-	}
-
-	//cv::imshow("input", inputM);
-	//cv::waitKey(1);
-
-	//showHistogram(hist);
-
-	return hist;
-}
 
 void showHistogram(const cv::Mat& histogram)
 {
 	stringstream histrogramNameSS;
-	histrogramNameSS << EnumStrings[featureTypeNum] << " Histogram";
+	histrogramNameSS << "HOG" << " Histogram";
 	std::string windowLabel = histrogramNameSS.str();
 	
 	int maxValue = 0;
@@ -544,9 +312,6 @@ void showHistogram(const cv::Mat& histogram)
 			cv::rectangle(canvas, newRect, clr, CV_FILLED, CV_AA);
 		}
 	}
-
-
-
 	cv::imshow(windowLabel, canvas);
 	cv::waitKey(1);
 }
@@ -560,7 +325,7 @@ std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, 
 	cv::Point centerOfLaneBox;
 	int cornerOffset = ceil((float)(VERTICAL_REGION_LOWER-VERTICAL_REGION_UPPER)/BOX_HEIGHT);
 	int leftCornerOffset, rightCornerOffset;
-	if (horizontalEnd == HORIZONTAL_CENTER) //We want to cut the upper left corner
+	if (horizontalEnd == dynamicCenterOfLanesXval) //We want to cut the upper left corner
 	{
 		leftCornerOffset = 1;
 		rightCornerOffset = 0;
@@ -571,8 +336,6 @@ std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, 
 		leftCornerOffset = 0;
 	}
 
-
-	
 	for (int r = VERTICAL_REGION_UPPER; r < VERTICAL_REGION_LOWER; r += BOX_HEIGHT, cornerOffset--)
 	{
 		for (int c = horizontalStart + cornerOffset*leftCornerOffset*BOX_WIDTH; c < horizontalEnd + cornerOffset*rightCornerOffset*BOX_WIDTH; c += BOX_WIDTH)
@@ -580,44 +343,25 @@ std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, 
 			{
 				sampleBox = cv::Mat(resizedImage, cv::Range(r, r + BOX_HEIGHT), cv::Range(c, c + BOX_WIDTH));
 
-				switch (featureTypeNum)
-				{
-				case LBP:
-					histogramOfFeature = LBPHistogram(sampleBox);
-					break;
-				case LPQ:
-					histogramOfFeature = LPQHistogram(sampleBox);
-					break;
-				case HOG:
-					//histogramOfFeature = HOGHistogram(sampleBox);
-					histogramOfFeature = HOGHistogramWithTranspose(sampleBox);
-					break;
-				case CSLBP:
-					histogramOfFeature = CSLBPHistogram(sampleBox);
-					break;
-				default:
-					break;
-				}
-				//cv::transpose(histogramOfFeature, transposedMat);
-				//responseSVM = svm->predict(transposedMat);
+				histogramOfFeature = HOGHistogramWithTranspose(sampleBox);
 				responseSVM = svm->predict(histogramOfFeature);
 
-				//if (responseSVM == 1)
-				//{
-				//	//Mark the cell with a red border
-				//	cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
-				//}
-				//if (responseSVM == -1)
-				//{
-				//	//Mark the cell with a red border
-				//	cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(255, 0, 0), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(255, 0, 0), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(255, 0, 0), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(255, 0, 0), 1, 8, 0);
-				//}
+				if (responseSVM == 1)
+				{
+					//Mark the cell with a red border
+					cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
+				}
+				if (responseSVM == -1)
+				{
+					//Mark the cell with a red border
+					cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(255, 0, 0), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(255, 0, 0), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(255, 0, 0), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(255, 0, 0), 1, 8, 0);
+				}
 
 				if (responseSVM == 1)
 				{
@@ -727,4 +471,50 @@ cv::Point findCentroidOfLaneArea(int rowStart, int columnStart, cv::Mat &sampleB
 	//Find the centroid of the largest contour
 	Moments mu = moments(contoursV[largestContourIndex], false);
 	return Point((int)(mu.m10 / mu.m00) + columnStart, (int)(mu.m01 / mu.m00) + rowStart);
+}
+
+bool linesIntersection(cv::Point o1, cv::Point p1, cv::Point o2, cv::Point p2, cv::Point &r)
+{
+	cv::Point x = o2 - o1;
+	cv::Point d1 = p1 - o1;
+	cv::Point d2 = p2 - o2;
+
+	float cross = d1.x*d2.y - d1.y*d2.x;
+	if (std::abs(cross) < /*EPS*/1e-8)
+		return false;
+
+	double t1 = (x.x * d2.y - x.y * d2.x) / cross;
+	r = o1 + d1 * t1;
+	return true;
+}
+
+int getCenterOfLanes(cv::Point leftLaneStartPoint, cv::Point leftLaneEndPoint, cv::Point rightLaneStartPoint, cv::Point rightLaneEndPoint)
+{
+	cv::Point upperLeftIntersection;
+	cv::Point upperRightIntersection;
+	cv::Point lowerLeftIntersection;
+	cv::Point lowerRightIntersection;
+
+	bool centerFound = true;
+	centerFound = linesIntersection(cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER),
+									leftLaneStartPoint, leftLaneEndPoint, upperLeftIntersection);
+	centerFound = linesIntersection(cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER),
+									rightLaneStartPoint, rightLaneEndPoint, upperRightIntersection);
+	centerFound = linesIntersection(cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER),
+									leftLaneStartPoint, leftLaneEndPoint, lowerLeftIntersection);
+	centerFound = linesIntersection(cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER),
+									rightLaneStartPoint, rightLaneEndPoint, lowerRightIntersection);
+	if (centerFound)
+	{
+		int upperCenter, lowerCenter;
+		upperCenter = (int)(upperRightIntersection.x - upperLeftIntersection.x) / 2 + upperLeftIntersection.x;
+		lowerCenter = (int)(lowerRightIntersection.x - lowerLeftIntersection.x) / 2 + lowerLeftIntersection.x;
+		int center = (int)(upperCenter + lowerCenter) / 2;
+		if (center > HORIZONTAL_REGION_LEFT && center < HORIZONTAL_REGION_RIGHT)
+			return center;
+		else
+			return HORIZONTAL_CENTER;
+	}
+	else
+		return HORIZONTAL_CENTER;
 }
