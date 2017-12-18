@@ -15,6 +15,7 @@
 #include <utility>
 #include <functional>
 #include <ctime>
+
 #ifdef _WIN32
 #include <io.h> //Check if file exists
 #define access    _access_s
@@ -75,16 +76,16 @@ int main()
 	//Create and load already trained SVM classifier
 	//Check if file exists
 	
-	//if (access(trainedSVMLeftLanefilename.str().c_str(), 0) != 0)
-	//{
-	//	std::cout << "Left SVM file doesn't exist" << std::endl;
-	//	return -1;
-	//}
-	//if (access(trainedSVMRightLanefilename.str().c_str(), 0) != 0)
-	//{
-	//	std::cout << "Right SVM file doesn't exist" << std::endl;
-	//	return -1;
-	//}
+	if (access(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", "").c_str(), 0) != 0)
+	{
+		std::cout << "Left SVM file doesn't exist" << std::endl;
+		return -1;
+	}
+	if (access(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", "").c_str(), 0) != 0)
+	{
+		std::cout << "Right SVM file doesn't exist" << std::endl;
+		return -1;
+	}
 	cv::Ptr<SVM> svmLeft = SVM::create();
 	svmLeft = SVM::load(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", ""));
 
@@ -183,7 +184,7 @@ int main()
 		}
 		
 		plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
-		//dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
+		dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
 		line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
 		//outputMat *= 255;
 		//outputMat.convertTo(outputMat, CV_8UC3); 
