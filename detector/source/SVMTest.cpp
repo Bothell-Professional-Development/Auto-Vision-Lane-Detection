@@ -7,12 +7,13 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/ml.hpp>
 
+#include "ConfigFile.h"
+#include "generated.h"
+
 #include <iostream> //for make_pair
 #include <fstream> //for ofstream
 #include <utility>
 #include <functional>
-#include <direct.h> //_getcwd
-
 #include <ctime>
 #ifdef _WIN32
 #include <io.h> //Check if file exists
@@ -20,7 +21,6 @@
 #else
 #include <unistd.h>
 #endif
-
 
 using namespace cv;
 using namespace cv::ml;
@@ -44,13 +44,6 @@ const int32_t VERTICAL_RESOLUTION = 1080 * imageResizeFactor;
 const int32_t BOX_WIDTH = 30 * imageResizeFactor;
 const int32_t BOX_HEIGHT = 30 * imageResizeFactor;
 
-#if WIN32
-#define trainingFilePath(path, featureString, laneSide) path << "/SVM_" << featureString << "_" << laneSide << "Lane.xml"
-#else
-#define trainingFilePath(path, featureString, laneSide) path << "/SVM_" << featureString << "_" << laneSide << "Lane.xml"
-#endif // WIN32
-
-
 const int32_t  VERTICAL_REGION_UPPER = 600 * imageResizeFactor;
 const int32_t  VERTICAL_REGION_LOWER = 800 * imageResizeFactor;
 const int32_t  HORIZONTAL_REGION_LEFT = 600 * imageResizeFactor;
@@ -60,7 +53,6 @@ int dynamicCenterOfLanesXval = HORIZONTAL_CENTER;
 
 const int pointDistanceFromLaneThreshold = 20 * imageResizeFactor;
 
-
 std::wstring string_to_wstring(const std::string& text) {
 	return std::wstring(text.begin(), text.end());
 }
@@ -68,28 +60,12 @@ std::wstring string_to_wstring(const std::string& text) {
 
 int main()
 {
-	
-	char cCurrentPath[200];
-	_getcwd(cCurrentPath, sizeof(cCurrentPath));
-	stringstream SVMinputFolder;
-	SVMinputFolder << cCurrentPath << "/../SVMOutput";
-	
-	std::cout << "Prog Start " << CLOCKS_PER_SEC << std::endl;
+	common_lib::ConfigFile cfgFile;
+	cfgFile.pullValuesFromFile(CFG_FILE_PATH);
 
-	stringstream trainedSVMLeftLanefilename;
-	stringstream trainedSVMRightLanefilename;
-	trainedSVMLeftLanefilename << trainingFilePath(SVMinputFolder.str(), "HOG", "Left");
-	
-	trainedSVMRightLanefilename << trainingFilePath(SVMinputFolder.str(), "HOG", "Right");
-	
 	//Load video
 	cv::VideoCapture cap;
-#if WIN32
-	cap.open("D:/WorkFolder/LaneDetectionTrainingData/2.MP4");
-#else
-	cap.open("/home/pi/Auto-Vision-Lane-Detection-2/2.MP4");
-#endif // WIN32
-
+	cap.open(cfgFile.readValueOrDefault("DETECTOR_INPUT", ""));
 	if (!cap.isOpened()) // Check for invalid input
 	{
 		std::cout << "Could not open or find the video file" << std::endl;
@@ -99,21 +75,21 @@ int main()
 	//Create and load already trained SVM classifier
 	//Check if file exists
 	
-	if (access(trainedSVMLeftLanefilename.str().c_str(), 0) != 0)
-	{
-		std::cout << "Left SVM file doesn't exist" << std::endl;
-		return -1;
-	}
-	if (access(trainedSVMRightLanefilename.str().c_str(), 0) != 0)
-	{
-		std::cout << "Right SVM file doesn't exist" << std::endl;
-		return -1;
-	}
+	//if (access(trainedSVMLeftLanefilename.str().c_str(), 0) != 0)
+	//{
+	//	std::cout << "Left SVM file doesn't exist" << std::endl;
+	//	return -1;
+	//}
+	//if (access(trainedSVMRightLanefilename.str().c_str(), 0) != 0)
+	//{
+	//	std::cout << "Right SVM file doesn't exist" << std::endl;
+	//	return -1;
+	//}
 	cv::Ptr<SVM> svmLeft = SVM::create();
-	svmLeft = SVM::load(trainedSVMLeftLanefilename.str());
-	
+	svmLeft = SVM::load(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", ""));
+
 	cv::Ptr<SVM> svmRight = SVM::create();
-	svmRight = SVM::load(trainedSVMRightLanefilename.str());
+	svmRight = SVM::load(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", ""));
 	
 	if (svmLeft->empty() || svmRight->empty())
 	{

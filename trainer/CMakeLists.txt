@@ -1,6 +1,37 @@
 cmake_minimum_required (VERSION 2.6)
 project (EBLaneDetectorTrainer)
 
+# Create generated folder to hold SVM output
+set(SVM_INPUT_LEFT_POS	${SVM_INPUT}/positive/left/)
+set(SVM_INPUT_LEFT_NEG  ${SVM_INPUT}/negative/left/)
+set(SVM_INPUT_RIGHT_POS ${SVM_INPUT}/positive/right/)
+set(SVM_INPUT_RIGHT_NEG ${SVM_INPUT}/negative/right/)
+
+set(SVM_DETECTOR_CONFIG ${CONFIG_FOLDER}/SVM_Trainer.cfg)
+set(DETECTOR_INPUT ${INPUT_FOLDER}/2.MP4)
+
+file(MAKE_DIRECTORY		${SVM_INPUT_LEFT_POS})
+file(MAKE_DIRECTORY		${SVM_INPUT_LEFT_NEG})
+file(MAKE_DIRECTORY		${SVM_INPUT_RIGHT_POS})
+file(MAKE_DIRECTORY		${SVM_INPUT_RIGHT_NEG})
+
+create_generated_header(${PROJECT_SOURCE_DIR}/interface/generated.h
+	"#define CFG_FILE_PATH \"${SVM_DETECTOR_CONFIG}\""
+)
+
+create_generated_config(${SVM_DETECTOR_CONFIG}
+	"SVM_LEFT_MODEL:${SVM_OUTPUT_LEFT}"
+	"SVM_RIGHT_MODEL:${SVM_OUTPUT_RIGHT}"
+
+	"POSITIVE_LEFT_FILE_PATH:${SVM_INPUT_LEFT_POS}"
+	"NEGATIVE_LEFT_FILE_PATH:${SVM_INPUT_LEFT_NEG}"
+	"POSITIVE_RIGHT_FILE_PATH:${SVM_INPUT_RIGHT_POS}"
+	"NEGATIVE_RIGHT_FILE_PATH:${SVM_INPUT_RIGHT_NEG}"
+
+	"LEFT_HISTOGRAM:${SVM_OUTPUT_FOLDER}/HistogramDistanceMatrix_HOG_Left.jpg"
+	"RIGHT_HISTOGRAM:${SVM_OUTPUT_FOLDER}/HistogramDistanceMatrix_HOG_Right.jpg"
+)
+
 
 set(TARGET_OS "win32")
 set(LIB_PREFIX "")
@@ -8,20 +39,23 @@ set(LIB_POSTFIX "330")
 set(LIB_POSTFIX_D "330d")
 set(LIB_EXT "dll")
 
-
 file(GLOB_RECURSE ${PROJECT_NAME}_SOURCE
+                  ${SVM_DETECTOR_CONFIG}
                   ${PROJECT_SOURCE_DIR}/interface/*.h
                   ${PROJECT_SOURCE_DIR}/source/*.cpp)
 				  
 #These directories contain the header files needed
-include_directories(${CMAKE_SOURCE_DIR}/opencv3.3/${TARGET_OS}/include)
-include_directories(${CMAKE_SOURCE_DIR}/interface)
+include_directories(
+	${CMAKE_SOURCE_DIR}/opencv3.3/${TARGET_OS}/include
+	${PROJECT_SOURCE_DIR}/interface
+	${CMAKE_SOURCE_DIR}/common_lib/inc)
 
 #These directories contain the .lib files needed
 #link_directories(${PROJECT_SOURCE_DIR}/opencv3.3/${TARGET_OS}/libs)
 
 add_definitions(-DUNICODE)
 add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SOURCE})
+target_link_libraries(${PROJECT_NAME} common_lib)
 
 #Link the necessary libraries to our executable
 set(LIBRARIES_DIR ${CMAKE_SOURCE_DIR}/opencv3.3/${TARGET_OS}/libs/)

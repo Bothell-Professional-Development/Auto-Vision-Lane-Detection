@@ -4,7 +4,7 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
-#include "opencv2/imgcodecs.hpp"
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/ml.hpp>
 
@@ -12,6 +12,9 @@
 #include <fstream> //for ofstream
 #include <utility>
 #include <functional>
+
+#include "ConfigFile.h"
+#include "generated.h"
 
 #include <Windows.h>
 #include <direct.h> //_getcwd
@@ -26,42 +29,30 @@ using namespace std;
 cv::Mat HOGHistogram(const cv::Mat& currentFrame);
 void showHistogram(const cv::Mat& histogram);
 void addTrainingDataAndLabels(string trainingDataPath, float label, vector<float> &labelsV, vector<Mat> &trainingHistogramsV);
-void trainSVMClassifier(string trainedSVMfilename, string positiveFilePath, string negativeFilePath, string folderPath, string identifier);
+void trainSVMClassifier(string trainedSVMfilename, string positiveFilePath, string negativeFilePath, string histogramFilePath);
 
-//const string positiveRightFilePath = "D:/WorkFolder/LaneDetectionTrainingData/TrainingDataSets/ChristosDataset/positiveRight/";
-//const string positiveLeftFilePath = "D:/WorkFolder/LaneDetectionTrainingData/TrainingDataSets/ChristosDataset/positiveLeft/";
-//const string negativeLeftFilePath = "D:/WorkFolder/LaneDetectionTrainingData/TrainingDataSets/ChristosDataset/negative/";
-//const string negativeRightFilePath = "D:/WorkFolder/LaneDetectionTrainingData/TrainingDataSets/ChristosDataset/negative/";
-
-const string positiveRightFilePath = "D:/WorkFolder/LaneDetectionTrainingData/TrainingDataSets/NewDataSet/positive/right/";
-const string positiveLeftFilePath = "D:/WorkFolder/LaneDetectionTrainingData/TrainingDataSets/NewDataSet/positive/left/";
-const string negativeLeftFilePath = "D:/WorkFolder/LaneDetectionTrainingData/TrainingDataSets/NewDataSet/negative/right/";
-const string negativeRightFilePath = "D:/WorkFolder/LaneDetectionTrainingData/TrainingDataSets/NewDataSet/negative/left/";
-
-#define trainingFilePath(currentPath, featureString, laneSide) currentPath << "/SVM_" << featureString << "_" << laneSide << "Lane.xml"
-#define histogramFilePath(currentPath, featureString, identifier) currentPath << "/HistogramDistanceMatrix_" << featureString << "_" << identifier << ".jpg";
-
+common_lib::ConfigFile g_cfgFile;
 
 std::wstring string_to_wstring(const std::string& text) {
 	return std::wstring(text.begin(), text.end());
 }
 
-
 int main()
 {
-	char cCurrentPath[200];
-	_getcwd(cCurrentPath, sizeof(cCurrentPath));	
-	stringstream outputFolder;
-	outputFolder << cCurrentPath << "/../SVMOutput";
-	USES_CONVERSION;
-	CreateDirectory(A2W(outputFolder.str().c_str()), NULL);
+	g_cfgFile.pullValuesFromFile(CFG_FILE_PATH);
 
-	stringstream trainedSVMLeftLanefilename;
-	stringstream trainedSVMRightLanefilename;
-	trainedSVMLeftLanefilename << trainingFilePath(outputFolder.str(), "HOG", "Left");
-	trainSVMClassifier(trainedSVMLeftLanefilename.str(), positiveLeftFilePath, negativeLeftFilePath, outputFolder.str(), "Left");
-	trainedSVMRightLanefilename << trainingFilePath(outputFolder.str(), "HOG", "Right");
-	trainSVMClassifier(trainedSVMRightLanefilename.str(), positiveRightFilePath, negativeRightFilePath, outputFolder.str(), "Right");
+	trainSVMClassifier(
+		g_cfgFile.readValueOrDefault("SVM_LEFT_MODEL", ""),
+		g_cfgFile.readValueOrDefault("POSITIVE_LEFT_FILE_PATH", ""),
+		g_cfgFile.readValueOrDefault("NEGATIVE_LEFT_FILE_PATH", ""),
+		g_cfgFile.readValueOrDefault("LEFT_HISTOGRAM", ""));
+
+	trainSVMClassifier(
+		g_cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", ""),
+		g_cfgFile.readValueOrDefault("POSITIVE_RIGHT_FILE_PATH", ""),
+		g_cfgFile.readValueOrDefault("NEGATIVE_RIGHT_FILE_PATH", ""),
+		g_cfgFile.readValueOrDefault("RIGHT_HISTOGRAM", ""));
+
 	return 0;
 }
 
@@ -191,7 +182,7 @@ void addTrainingDataAndLabels(string trainingDataPath, float label, vector<float
 	}
 }
 
-void trainSVMClassifier(string trainedSVMfilename, string positiveFilePath, string negativeFilePath, string folderPath, string identifier)
+void trainSVMClassifier(string trainedSVMfilename, string positiveFilePath, string negativeFilePath, string histogramFilePath)
 {
 	vector<float> labelsV; //We store the labels of the training data here
 	vector<Mat> trainingHistogramsV;
@@ -216,7 +207,7 @@ void trainSVMClassifier(string trainedSVMfilename, string positiveFilePath, stri
 	histogramDistMatrix *= 255;
 	histogramDistMatrix.convertTo(histogramDistMatrix, CV_8UC1);
 	stringstream histogramDistanceMatrixFilename;
-	histogramDistanceMatrixFilename << histogramFilePath(folderPath, "HOG", identifier);
+	histogramDistanceMatrixFilename << histogramFilePath;
 	imwrite(histogramDistanceMatrixFilename.str(), histogramDistMatrix);
 	waitKey(0);
 
