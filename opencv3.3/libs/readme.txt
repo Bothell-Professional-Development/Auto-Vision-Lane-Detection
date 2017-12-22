@@ -1,1 +1,0 @@
-These are opencv-3.3.0 libs compiled for vc14 x86 builds.

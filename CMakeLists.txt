@@ -1,29 +1,59 @@
 cmake_minimum_required (VERSION 2.6)
-project (EBLaneDetector)
+project (EBAutoVisionLaneDetection)
 
-file(GLOB_RECURSE ${PROJECT_NAME}_SOURCE
-                  ${PROJECT_SOURCE_DIR}/interface/*.h
-                  ${PROJECT_SOURCE_DIR}/source/*.cpp)
-				  
-#These directories contain the header files needed
-include_directories(${PROJECT_SOURCE_DIR}/opencv3.3/include)
-include_directories(${PROJECT_SOURCE_DIR}/interface)
+# Create gitignore for build dir
+file(WRITE ${PROJECT_BINARY_DIR}/.gitignore "/*")
 
-#These directories contain the .lib files needed
-link_directories(${PROJECT_SOURCE_DIR}/opencv3.3/libs)
 
-add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SOURCE})
 
-#Link the necessary libraries to our executable
-target_link_libraries(${PROJECT_NAME} opencv_core330d)
-target_link_libraries(${PROJECT_NAME} opencv_highgui330d)
-target_link_libraries(${PROJECT_NAME} opencv_imgproc330d)
-target_link_libraries(${PROJECT_NAME} opencv_videoio330d)
+# Common Definitions
+set(SVM_OUTPUT_FOLDER	${PROJECT_BINARY_DIR}/_SVMModel)
+file(MAKE_DIRECTORY		${SVM_OUTPUT_FOLDER})
 
-#Copy the pre-built dlls to the output executable folder
-file(COPY ${PROJECT_SOURCE_DIR}/opencv3.3/resources/opencv_core330d.dll DESTINATION ${PROJECT_BINARY_DIR}/Debug)
-file(COPY ${PROJECT_SOURCE_DIR}/opencv3.3/resources/opencv_highgui330d.dll DESTINATION ${PROJECT_BINARY_DIR}/Debug)
-file(COPY ${PROJECT_SOURCE_DIR}/opencv3.3/resources/opencv_imgproc330d.dll DESTINATION ${PROJECT_BINARY_DIR}/Debug)
-file(COPY ${PROJECT_SOURCE_DIR}/opencv3.3/resources/opencv_videoio330d.dll DESTINATION ${PROJECT_BINARY_DIR}/Debug)
-file(COPY ${PROJECT_SOURCE_DIR}/opencv3.3/resources/opencv_imgcodecs330d.dll DESTINATION ${PROJECT_BINARY_DIR}/Debug)
-file(COPY ${PROJECT_SOURCE_DIR}/opencv3.3/resources/opencv_ffmpeg330.dll DESTINATION ${PROJECT_BINARY_DIR}/Debug)
+set(CONFIG_FOLDER		${PROJECT_BINARY_DIR}/_Config)
+file(MAKE_DIRECTORY		${CONFIG_FOLDER})
+
+set(INPUT_FOLDER		${PROJECT_BINARY_DIR}/_Input)
+file(MAKE_DIRECTORY		${INPUT_FOLDER})
+
+set(SVM_OUTPUT_LEFT		${SVM_OUTPUT_FOLDER}/SVM_HOG_LeftLane.xml)
+set(SVM_OUTPUT_RIGHT	${SVM_OUTPUT_FOLDER}/SVM_HOG_RightLane.xml)
+set(SVM_INPUT			${PROJECT_BINARY_DIR}/_SVMInputData)
+
+
+
+# Utility function
+	function(create_generated_header path)
+		set(CONTENT "")
+		foreach(val ${ARGN})
+			set(CONTENT "${CONTENT}\n${val}")
+		endforeach()
+		
+		file(WRITE
+			${path}
+			"#pragma once\n"
+	 		"\n"
+			"/**\n"
+			" * NOTE: This is a generated file and will be overwritten upon CMake config.\n"
+			" */\n"
+			${CONTENT}
+			"\n")
+	endfunction(create_generated_header)
+
+	function(create_generated_config path)
+		set(CONTENT "")
+		foreach(val ${ARGN})
+			set(CONTENT "${CONTENT}\n${val}")
+		endforeach()
+
+		file(WRITE
+			${path}
+			"NOTE: This is a generated file and will be overwritten upon CMake config.\n"
+			${CONTENT})
+	endfunction(create_generated_config)
+
+ADD_SUBDIRECTORY(common_lib)
+ADD_SUBDIRECTORY(detector)
+if(WIN32)
+    ADD_SUBDIRECTORY(trainer)
+endif()
