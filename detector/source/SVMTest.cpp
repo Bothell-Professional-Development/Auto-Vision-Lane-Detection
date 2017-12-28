@@ -33,13 +33,24 @@ std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, 
 void plotLanePoints(Mat &resizedImage, vector<Point> &leftLaneUnfilteredPoints, vector<Point> &rightLaneUnfilteredPoints);
 std::vector<float> findBestFittingCurve(std::vector<cv::Point> &lanePoints);
 std::vector<cv::Point> filterLanePoints(std::vector<cv::Point> &unfilteredPoints, cv::Point line_start, cv::Point line_end);
+const std::vector<cv::Point> filterLanePoints(const std::vector<cv::Point>& unfilteredPoints,
+                                              const cv::Point nearLineStart,
+                                              const cv::Point nearLineEnd,
+                                              const cv::Point farLineStart,
+                                              const cv::Point farLineEnd);
 float euclideanDist(Point& p, Point& q);
 float distanceToLine(cv::Point line_start, cv::Point line_end, cv::Point point);
 cv::Point findCentroidOfLaneArea(int rowStart, int columnStart, cv::Mat &sampleBox);
 bool linesIntersection(cv::Point o1, cv::Point p1, cv::Point o2, cv::Point p2, cv::Point &r);
 int getCenterOfLanes(cv::Point leftLaneStartPoint, cv::Point leftLaneEndPoint, cv::Point rightLaneStartPoint, cv::Point rightLaneEndPoint);
+bool sameSign(const int32_t& x, const int32_t& y);
+bool findLineLineIntersection(const int32_t& x0, const int32_t& y0,
+                              const int32_t& x1, const int32_t& y1,
+                              const int32_t& x2, const int32_t& y2,
+                              const int32_t& x3, const int32_t& y3,
+                              int32_t& xOut, int32_t& yOut);
 
-float imageResizeFactor = 0.5;
+float imageResizeFactor = 1;
 const int32_t HORIZONTAL_RESOLUTION = 1920 * imageResizeFactor;
 const int32_t VERTICAL_RESOLUTION = 1080 * imageResizeFactor;
 const int32_t BOX_WIDTH = 30 * imageResizeFactor;
@@ -51,6 +62,16 @@ const int32_t  HORIZONTAL_REGION_LEFT = 600 * imageResizeFactor;
 const int32_t  HORIZONTAL_REGION_RIGHT = 1400 * imageResizeFactor;
 const int32_t  HORIZONTAL_CENTER = 960 * imageResizeFactor;
 int dynamicCenterOfLanesXval = HORIZONTAL_CENTER;
+
+const cv::Point IDEAL_LEFT_LANE_MARKER_START = cv::Point(720 * imageResizeFactor, VERTICAL_REGION_LOWER);
+const cv::Point IDEAL_LEFT_LANE_MARKER_END = cv::Point(995 * imageResizeFactor, VERTICAL_REGION_UPPER);
+const cv::Point IDEAL_RIGHT_LANE_MARKER_START = cv::Point(1280 * imageResizeFactor, VERTICAL_REGION_LOWER);
+const cv::Point IDEAL_RIGHT_LANE_MARKER_END = cv::Point(1005 * imageResizeFactor, VERTICAL_REGION_UPPER);
+
+const cv::Point ADJACENT_LEFT_LANE_MARKER_START = cv::Point(HORIZONTAL_REGION_LEFT, 718 * imageResizeFactor);
+const cv::Point ADJACENT_LEFT_LANE_MARKER_END = cv::Point(985 * imageResizeFactor, VERTICAL_REGION_UPPER);
+const cv::Point ADJACENT_RIGHT_LANE_MARKER_START = cv::Point(HORIZONTAL_REGION_RIGHT, 718 * imageResizeFactor);
+const cv::Point ADJACENT_RIGHT_LANE_MARKER_END = cv::Point(1015 * imageResizeFactor, VERTICAL_REGION_UPPER);
 
 const int pointDistanceFromLaneThreshold = 20 * imageResizeFactor;
 
@@ -115,6 +136,8 @@ int main()
 	clock_t newTime;
 	int fpsMean = 0;
 	int frameCounter = 0;
+	int lastKnownCenterX = HORIZONTAL_CENTER;
+
 	while (cap.read(frame) && frame.data != NULL)
 	{
 		//Get the processing time per frame
@@ -126,81 +149,205 @@ int main()
 		fpsMean += fps;
 		frameCounter++;
 
-		resize(frame, resizedImage, cv::Size(HORIZONTAL_RESOLUTION, VERTICAL_RESOLUTION));
-		//resizedImage = frame.clone(); //First try with full resolution
-		cvtColor(resizedImage, resizedImage, CV_BGR2GRAY);
-		resizedImage.convertTo(resizedImage, CV_32FC1); //Grayscale
-		resizedImage /= 255;
-
-		//Only for visualization purposes. Should be removed from final product
-		resizedImage.convertTo(outputMat, CV_32FC3);
-		cvtColor(outputMat, outputMat, CV_GRAY2BGR);
-
-		// TESTING: Mark the Region Of Interest ROI
-		cv::line(outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Scalar(0, 255, 0), 2, 8, 0);
-		cv::line(outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
-		cv::line(outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
-		cv::line(outputMat, cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
-		//imshow("ROI", resizedImage);
-		//waitKey(0);
-
-		
-		leftLaneUnfilteredPoints = getSVMPrediction(HORIZONTAL_REGION_LEFT, dynamicCenterOfLanesXval, resizedImage, outputMat, svmLeft);
-		rightLaneUnfilteredPoints = getSVMPrediction(dynamicCenterOfLanesXval, HORIZONTAL_REGION_RIGHT, resizedImage, outputMat, svmRight);
-		totalPointsFound += leftLaneUnfilteredPoints.size() + rightLaneUnfilteredPoints.size();
-		
-		//Find a crude line first
-		if (leftLaneUnfilteredPoints.size() > 2)
+		if (frameCounter % 2 ==0)
 		{
-			leftLaneLine = findBestFittingCurve(leftLaneUnfilteredPoints);
-			leftLaneStartPoint = Point(leftLaneLine[2] - leftLaneLine[0] * twoWayProjectionDistanceForLine, leftLaneLine[3] - leftLaneLine[1] * twoWayProjectionDistanceForLine);
-			leftLaneEndPoint = Point(leftLaneLine[2] + leftLaneLine[0] * twoWayProjectionDistanceForLine, leftLaneLine[3] + leftLaneLine[1] * twoWayProjectionDistanceForLine);
-			//Filter out the outliers
-			leftLaneFilteredPoints = filterLanePoints(leftLaneUnfilteredPoints, leftLaneStartPoint, leftLaneEndPoint);
-			//Refine the line
-			if (leftLaneFilteredPoints.size() > 2)
+			resize(frame, resizedImage, cv::Size(HORIZONTAL_RESOLUTION, VERTICAL_RESOLUTION));
+			//resizedImage = frame.clone(); //First try with full resolution
+			cvtColor(resizedImage, resizedImage, CV_BGR2GRAY);
+			resizedImage.convertTo(resizedImage, CV_32FC1); //Grayscale
+			resizedImage /= 255;
+
+			//Only for visualization purposes. Should be removed from final product
+			resizedImage.convertTo(outputMat, CV_32FC3);
+			cvtColor(outputMat, outputMat, CV_GRAY2BGR);
+
+			// TESTING: Mark the Region Of Interest ROI
+			cv::line(outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Scalar(0, 255, 0), 2, 8, 0);
+			cv::line(outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
+			cv::line(outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
+			cv::line(outputMat, cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
+			//imshow("ROI", resizedImage);
+			//waitKey(0);
+
+
+			leftLaneUnfilteredPoints = getSVMPrediction(HORIZONTAL_REGION_LEFT, dynamicCenterOfLanesXval, resizedImage, outputMat, svmLeft);
+			rightLaneUnfilteredPoints = getSVMPrediction(dynamicCenterOfLanesXval, HORIZONTAL_REGION_RIGHT, resizedImage, outputMat, svmRight);
+			totalPointsFound += leftLaneUnfilteredPoints.size() + rightLaneUnfilteredPoints.size();
+
+			//Find a crude line first
+			if (leftLaneUnfilteredPoints.size() > 2)
 			{
-				leftLaneLine = findBestFittingCurve(leftLaneFilteredPoints);
+				/*leftLaneLine = findBestFittingCurve(leftLaneUnfilteredPoints);
 				leftLaneStartPoint = Point(leftLaneLine[2] - leftLaneLine[0] * twoWayProjectionDistanceForLine, leftLaneLine[3] - leftLaneLine[1] * twoWayProjectionDistanceForLine);
 				leftLaneEndPoint = Point(leftLaneLine[2] + leftLaneLine[0] * twoWayProjectionDistanceForLine, leftLaneLine[3] + leftLaneLine[1] * twoWayProjectionDistanceForLine);
-				line(outputMat, leftLaneStartPoint, leftLaneEndPoint, Scalar(0, 0, 1), 1, 8);
+				//Filter out the outliers
+				leftLaneFilteredPoints = filterLanePoints(leftLaneUnfilteredPoints, leftLaneStartPoint, leftLaneEndPoint);*/
+				//test new filter
+				leftLaneFilteredPoints = filterLanePoints(leftLaneUnfilteredPoints,
+					IDEAL_LEFT_LANE_MARKER_START,
+					IDEAL_LEFT_LANE_MARKER_END,
+					ADJACENT_LEFT_LANE_MARKER_START,
+					ADJACENT_LEFT_LANE_MARKER_END);
+				//Refine the line
+				if (leftLaneFilteredPoints.size() > 2)
+				{
+					leftLaneLine = findBestFittingCurve(leftLaneFilteredPoints);
+					leftLaneStartPoint = Point(leftLaneLine[2] - leftLaneLine[0] * twoWayProjectionDistanceForLine, leftLaneLine[3] - leftLaneLine[1] * twoWayProjectionDistanceForLine);
+					leftLaneEndPoint = Point(leftLaneLine[2] + leftLaneLine[0] * twoWayProjectionDistanceForLine, leftLaneLine[3] + leftLaneLine[1] * twoWayProjectionDistanceForLine);
+					line(outputMat, leftLaneStartPoint, leftLaneEndPoint, Scalar(0, 0, 1), 2, 8);
+				}
 			}
-		}
 
-		if (rightLaneUnfilteredPoints.size() > 2)
-		{
-			rightLaneLine = findBestFittingCurve(rightLaneUnfilteredPoints);
-			rightLaneStartPoint = Point(rightLaneLine[2] - rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] - rightLaneLine[1] * twoWayProjectionDistanceForLine);
-			rightLaneEndPoint = Point(rightLaneLine[2] + rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] + rightLaneLine[1] * twoWayProjectionDistanceForLine);
-			//Filter out the outliers
-			rightLaneFilteredPoints = filterLanePoints(rightLaneUnfilteredPoints, rightLaneStartPoint, rightLaneEndPoint);
-			if (rightLaneFilteredPoints.size() > 2)
+			if (rightLaneUnfilteredPoints.size() > 2)
 			{
-				rightLaneLine = findBestFittingCurve(rightLaneFilteredPoints);
+				/*rightLaneLine = findBestFittingCurve(rightLaneUnfilteredPoints);
 				rightLaneStartPoint = Point(rightLaneLine[2] - rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] - rightLaneLine[1] * twoWayProjectionDistanceForLine);
 				rightLaneEndPoint = Point(rightLaneLine[2] + rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] + rightLaneLine[1] * twoWayProjectionDistanceForLine);
-				line(outputMat, rightLaneStartPoint, rightLaneEndPoint, Scalar(1, 0, 0), 1, 8);
+				//Filter out the outliers
+				rightLaneFilteredPoints = filterLanePoints(rightLaneUnfilteredPoints, rightLaneStartPoint, rightLaneEndPoint);*/
+				rightLaneFilteredPoints = filterLanePoints(rightLaneUnfilteredPoints,
+					IDEAL_RIGHT_LANE_MARKER_START,
+					IDEAL_RIGHT_LANE_MARKER_END,
+					ADJACENT_RIGHT_LANE_MARKER_START,
+					ADJACENT_RIGHT_LANE_MARKER_END);
+
+				if (rightLaneFilteredPoints.size() > 2)
+				{
+					rightLaneLine = findBestFittingCurve(rightLaneFilteredPoints);
+					rightLaneStartPoint = Point(rightLaneLine[2] - rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] - rightLaneLine[1] * twoWayProjectionDistanceForLine);
+					rightLaneEndPoint = Point(rightLaneLine[2] + rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] + rightLaneLine[1] * twoWayProjectionDistanceForLine);
+					line(outputMat, rightLaneStartPoint, rightLaneEndPoint, Scalar(1, 0, 0), 2, 8);
+				}
 			}
-		}
-		
-		plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
-		dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
-		line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
-		//outputMat *= 255;
-		//outputMat.convertTo(outputMat, CV_8UC3); 
-	
-		//imwrite("D:/WorkFolder/LaneDetectionTrainingData/SVM_Results.jpg", outputMat);
-		//return -1;
+
+			//debug - approximate idealized lane margins
+			line(outputMat, IDEAL_LEFT_LANE_MARKER_START, IDEAL_LEFT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
+			line(outputMat, IDEAL_RIGHT_LANE_MARKER_START, IDEAL_RIGHT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
+			line(outputMat, ADJACENT_LEFT_LANE_MARKER_START, ADJACENT_LEFT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
+			line(outputMat, ADJACENT_RIGHT_LANE_MARKER_START, ADJACENT_RIGHT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
+
+			//debug - predicted lane center
+			int laneCenterX = HORIZONTAL_CENTER;
+			int leftHorizonIntersectionX = HORIZONTAL_CENTER;
+			int rightHorizonIntersectionX = HORIZONTAL_CENTER;
+			int horizonY = VERTICAL_REGION_UPPER + 50;
+
+			int leftIntersectionX = 0;
+			int rightIntersectionX = 0;
+			int intersectionY = 0;
+
+			if (leftLaneFilteredPoints.size() > 2)
+			{
+				findLineLineIntersection(leftLaneStartPoint.x,
+					leftLaneStartPoint.y,
+					leftLaneEndPoint.x,
+					leftLaneEndPoint.y,
+					0,
+					VERTICAL_REGION_LOWER,
+					HORIZONTAL_RESOLUTION,
+					VERTICAL_REGION_LOWER,
+					leftIntersectionX,
+					intersectionY);
+
+				findLineLineIntersection(leftLaneStartPoint.x,
+					leftLaneStartPoint.y,
+					leftLaneEndPoint.x,
+					leftLaneEndPoint.y,
+					0,
+					horizonY,
+					HORIZONTAL_RESOLUTION,
+					horizonY,
+					leftHorizonIntersectionX,
+					intersectionY);
+			}
+			if (rightLaneFilteredPoints.size() > 2)
+			{
+				findLineLineIntersection(rightLaneStartPoint.x,
+					rightLaneStartPoint.y,
+					rightLaneEndPoint.x,
+					rightLaneEndPoint.y,
+					0,
+					VERTICAL_REGION_LOWER,
+					HORIZONTAL_RESOLUTION,
+					VERTICAL_REGION_LOWER,
+					rightIntersectionX,
+					intersectionY);
+
+				findLineLineIntersection(rightLaneStartPoint.x,
+					rightLaneStartPoint.y,
+					rightLaneEndPoint.x,
+					rightLaneEndPoint.y,
+					0,
+					horizonY,
+					HORIZONTAL_RESOLUTION,
+					horizonY,
+					rightHorizonIntersectionX,
+					intersectionY);
+			}
+
+			//average left and right lane intersections with RoI box
+			if (leftLaneFilteredPoints.size() > 2 && rightLaneFilteredPoints.size() > 2 &&
+				leftIntersectionX > 0 && rightIntersectionX > 0)
+			{
+				laneCenterX = (((leftIntersectionX + rightIntersectionX) / 2) + lastKnownCenterX) / 2;
+				lastKnownCenterX = laneCenterX;
+			}
+			//estimate center from left marker
+			else if (leftLaneFilteredPoints.size() > 2 && leftIntersectionX > 0)
+			{
+				laneCenterX = ((leftIntersectionX + (IDEAL_RIGHT_LANE_MARKER_START.x - IDEAL_LEFT_LANE_MARKER_START.x) / 2) + lastKnownCenterX) / 2;
+				lastKnownCenterX = laneCenterX;
+			}
+			//estimate center from right marker
+			else if (rightLaneFilteredPoints.size() > 2 && rightIntersectionX > 0)
+			{
+				laneCenterX = ((rightIntersectionX - (IDEAL_RIGHT_LANE_MARKER_START.x - IDEAL_LEFT_LANE_MARKER_START.x) / 2) + lastKnownCenterX) / 2;
+				lastKnownCenterX = laneCenterX;
+			}
+			//last known good?
+			else
+			{
+				laneCenterX = lastKnownCenterX;
+			}
+
+			std::ostringstream str;
+			str << "Out: " << laneCenterX - ((IDEAL_LEFT_LANE_MARKER_START.x + IDEAL_RIGHT_LANE_MARKER_START.x) / 2);
+
+			putText(outputMat, str.str(), cvPoint(HORIZONTAL_CENTER, VERTICAL_REGION_LOWER + 20),
+				FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200, 200, 250), 1, CV_AA);
+
+
+			//line(outputMat, cv::Point((IDEAL_LEFT_LANE_MARKER_START.x + IDEAL_RIGHT_LANE_MARKER_START.x) / 2, VERTICAL_REGION_UPPER),
+			//	cv::Point(laneCenterX, VERTICAL_REGION_LOWER),
+			//	Scalar(0, 127, 0),
+			//	1,
+			//	8);
+			line(outputMat, cv::Point((leftHorizonIntersectionX + rightHorizonIntersectionX) / 2, horizonY),
+					cv::Point(laneCenterX, VERTICAL_REGION_LOWER),
+					Scalar(0, 127, 0),
+					1,
+					8);
+
+			plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
+			dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
+			line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
+			//outputMat *= 255;
+			//outputMat.convertTo(outputMat, CV_8UC3); 
+
+			//imwrite("D:/WorkFolder/LaneDetectionTrainingData/SVM_Results.jpg", outputMat);
+			//return -1;
 #if WIN32
-		imshow("Classification", outputMat);
-		waitKey(1);
+			imshow("Classification", outputMat);
+			waitKey(1);
 #endif
-		
+		}
 	}
+
 	if (frameCounter != 0)
 	{
 		fpsMean = (int)fpsMean / frameCounter;
 	}
+
 	std::cout << "Average fps rate: " << fpsMean << std::endl;
 	cout << "Total points found: " << totalPointsFound << endl;
 	
@@ -289,6 +436,7 @@ void showHistogram(const cv::Mat& histogram)
 			cv::rectangle(canvas, newRect, clr, CV_FILLED, CV_AA);
 		}
 	}
+
 	cv::imshow(windowLabel, canvas);
 	cv::waitKey(1);
 }
@@ -398,6 +546,43 @@ std::vector<cv::Point> filterLanePoints(std::vector<cv::Point> &unfilteredPoints
 	return filteredPoints;
 }
 
+const std::vector<cv::Point> filterLanePoints(const std::vector<cv::Point>& unfilteredPoints,
+											  const cv::Point nearLineStart,
+											  const cv::Point nearLineEnd,
+											  const cv::Point farLineStart,
+											  const cv::Point farLineEnd)
+{
+	std::vector<cv::Point> closeToNearLinePoints; 
+	vector<float> distancesToNearLine;
+	float totalDist = 0.0;
+
+	for (int i = 0; i < unfilteredPoints.size(); ++i)
+	{
+		float distToNearLine = distanceToLine(nearLineStart, nearLineEnd, unfilteredPoints[i]);
+		float distToFarLine = distanceToLine(farLineStart, farLineEnd, unfilteredPoints[i]);
+		
+		if (distToNearLine < distToFarLine)
+		{
+			closeToNearLinePoints.push_back(unfilteredPoints[i]);
+			distancesToNearLine.push_back(distToNearLine);
+			totalDist += distToNearLine;
+		}
+	}
+
+	std::vector<cv::Point> filteredPoints;
+	float avgDistToNear = totalDist / distancesToNearLine.size();
+
+	for (int i = 0; i < closeToNearLinePoints.size(); ++i)
+	{
+		if (distancesToNearLine[i] < avgDistToNear * 1.05)
+		{
+			filteredPoints.push_back(closeToNearLinePoints[i]);
+		}
+	}
+
+	return filteredPoints;
+}
+
 float distanceToLine(cv::Point line_start, cv::Point line_end, cv::Point point)
 {
 	float normalLength = hypot(line_end.x - line_start.x, line_end.y - line_start.y);
@@ -448,6 +633,59 @@ cv::Point findCentroidOfLaneArea(int rowStart, int columnStart, cv::Mat &sampleB
 	//Find the centroid of the largest contour
 	Moments mu = moments(contoursV[largestContourIndex], false);
 	return Point((int)(mu.m10 / mu.m00) + columnStart, (int)(mu.m01 / mu.m00) + rowStart);
+}
+
+bool findLineLineIntersection(const int32_t& x0, const int32_t& y0,
+							  const int32_t& x1, const int32_t& y1,
+							  const int32_t& x2, const int32_t& y2,
+							  const int32_t& x3, const int32_t& y3,
+							  int32_t& xOut, int32_t& yOut)
+{
+	int32_t a0 = y1 - y0;
+	int32_t b0 = x0 - x1;
+	int32_t c0 = x1 * y0 - x0 * y1;
+
+	int32_t r2 = a0 * x2 + b0 * y2 + c0;
+	int32_t r3 = a0 * x3 + b0 * y3 + c0;
+
+	if (r2 != 0 && r3 != 0 && sameSign(r2, r3))
+	{
+		return false;
+	}
+
+	int32_t a1 = y3 - y2;
+	int32_t b1 = x2 - x3;
+	int32_t c1 = x3 * y2 - x2 * y3;
+
+	int32_t r0 = a1 * x0 + b1 * y0 + c1;
+	int32_t r1 = a1 * x1 + b1 * y1 + c1;
+
+	if (r0 != 0 && r2 != 0 && sameSign(r0, r1))
+	{
+		return false;
+	}
+
+	int32_t denom = a0 * b1 - a1 * b0;
+
+	if (denom == 0)
+	{
+		return false;
+	}
+
+	int32_t offset = denom < 0 ? -denom / 2 : denom / 2;
+
+	int32_t num = b0 * c1 - b1 * c0;
+	xOut = (num < 0 ? num - offset : num + offset) / denom;
+
+	num = a1 * c0 - a0 * c1;
+	yOut = (num < 0 ? num - offset : num + offset) / denom;
+
+	return true;
+}
+
+bool sameSign(const int32_t& x, const int32_t& y)
+{
+	return (x >= 0) ^ (y < 0);
 }
 
 bool linesIntersection(cv::Point o1, cv::Point p1, cv::Point o2, cv::Point p2, cv::Point &r)
