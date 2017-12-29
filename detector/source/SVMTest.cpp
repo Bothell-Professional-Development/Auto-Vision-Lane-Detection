@@ -331,8 +331,9 @@ int main()
 			plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
 			dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
 			line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
-						//outputMat *= 255;
+			//outputMat *= 255;
 			//outputMat.convertTo(outputMat, CV_8UC3); 
+
 			//adding in PID Controller visualization
 			double PointZero_x = 960 * imageResizeFactor; //Set for middle of the video
 			double PointZero_y = 1080 * imageResizeFactor; //Set for bottom of the video
@@ -369,6 +370,9 @@ int main()
 				//cv::waitKey(0);
 			}
 			//end of PID Controller visualization
+
+			//outputMat *= 255;
+			//outputMat.convertTo(outputMat, CV_8UC3); 
 			//imwrite("D:/WorkFolder/LaneDetectionTrainingData/SVM_Results.jpg", outputMat);
 			//return -1;
 #if WIN32
