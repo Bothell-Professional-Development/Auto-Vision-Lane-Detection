@@ -185,6 +185,42 @@ int main()
 		
 		plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
 		dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
+		//adding in PID Controller visualization
+		double PointZero_x = 960 * imageResizeFactor; //Set for middle of the video
+		double PointZero_y = 1080 * imageResizeFactor; //Set for bottom of the video
+		double PointOne_x = 0;
+		double PointOne_y = 0;
+		double PointTwo_x = 0;
+		double PointTwo_y = 0;
+		double PointThree_x = 0;
+		PointThree_x = dynamicCenterOfLanesXval;  //set to match the dynamic center of lane
+		double PointThree_y = 540 * imageResizeFactor;  //set to match somewhere in the middle of the video.  in future updates, it will be set to the top of our region of interest (probably)
+		//Setting the intermediary points.  Eventually this will need to be updated to take into account the angle of the lane, and the angle of the wheels
+		PointOne_x = PointZero_x;
+		PointOne_y = PointZero_y - (PointThree_y / 1.8);  //changing this 1.8 value here will change how the fit line tries to fit.  Will experiment with this more later.
+		PointTwo_x = PointThree_x;
+		PointTwo_y = PointThree_y + (PointThree_y / 1.8);  //same as above comment.
+		//for sanity/display purposes, show the points with a white line!
+		cv::line(outputMat, cv::Point2f(PointZero_x, PointZero_y), cv::Point2f(PointOne_x, PointOne_y), cv::Scalar(255, 255, 255), 1, 8, 0);
+		cv::line(outputMat, cv::Point2f(PointOne_x, PointOne_y), cv::Point2f(PointTwo_x, PointTwo_y), cv::Scalar(255, 255, 255), 1, 8, 0);
+		cv::line(outputMat, cv::Point2f(PointTwo_x, PointTwo_y), cv::Point2f(PointThree_x, PointThree_y), cv::Scalar(255, 255, 255), 1, 8, 0);
+		//some more setup for the actual drawing of lines.
+		double Line_x_origin = 0;
+		double Line_y_origin = 0;
+		double Line_x_end = 0;
+		double Line_y_end = 0;
+		//Time to draw the best fit curve.  TODO: Make it adjustable how many line segments we want to display (because changing it manually is a pain right now)
+		for (double n = 0; n < 10; n++) {
+			//warning, scary math
+			Line_x_origin = pow(1 - (n / 10), 3) * PointZero_x + 3 * pow(1 - (n / 10), 2) * (n / 10) * PointOne_x + 3 * (1 - (n / 10)) * pow((n / 10), 2) * PointTwo_x + pow((n / 10), 3) * PointThree_x;
+			Line_y_origin = pow(1 - (n / 10), 3) * PointZero_y + 3 * pow(1 - (n / 10), 2) * (n / 10) * PointOne_y + 3 * (1 - (n / 10)) * pow((n / 10), 2) * PointTwo_y + pow((n / 10), 3) * PointThree_y;
+			Line_x_end = pow(1 - ((n + 1) / 10), 3) * PointZero_x + 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * PointOne_x + 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * PointTwo_x + pow(((n + 1) / 10), 3) * PointThree_x;
+			Line_y_end = pow(1 - ((n + 1) / 10), 3) * PointZero_y + 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * PointOne_y + 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * PointTwo_y + pow(((n + 1) / 10), 3) * PointThree_y;
+			cv::line(outputMat, cv::Point2f(Line_x_origin, Line_y_origin), cv::Point2f(Line_x_end, Line_y_end), cv::Scalar(255 , 0, 5 + (n * 50)), 2, 8, 0);
+			//cv::imshow("test name", outputMat);
+			//cv::waitKey(0);
+		}
+		//end of PID Controller visualization
 		line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
 		//outputMat *= 255;
 		//outputMat.convertTo(outputMat, CV_8UC3); 
