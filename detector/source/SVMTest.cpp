@@ -43,6 +43,8 @@ float distanceToLine(cv::Point line_start, cv::Point line_end, cv::Point point);
 cv::Point findCentroidOfLaneArea(int rowStart, int columnStart, cv::Mat &sampleBox);
 bool linesIntersection(cv::Point o1, cv::Point p1, cv::Point o2, cv::Point p2, cv::Point &r);
 int getCenterOfLanes(cv::Point leftLaneStartPoint, cv::Point leftLaneEndPoint, cv::Point rightLaneStartPoint, cv::Point rightLaneEndPoint);
+cv::Point getPointVectorAverage(std::vector<cv::Point> &pointV);
+
 bool sameSign(const int32_t& x, const int32_t& y);
 bool findLineLineIntersection(const int32_t& x0, const int32_t& y0,
                               const int32_t& x1, const int32_t& y1,
@@ -61,7 +63,11 @@ const int32_t  VERTICAL_REGION_LOWER = 800 * imageResizeFactor;
 const int32_t  HORIZONTAL_REGION_LEFT = 600 * imageResizeFactor;
 const int32_t  HORIZONTAL_REGION_RIGHT = 1400 * imageResizeFactor;
 const int32_t  HORIZONTAL_CENTER = 960 * imageResizeFactor;
+const int32_t AVERAGING_WINDOW_SIZE = 30;
 int dynamicCenterOfLanesXval = HORIZONTAL_CENTER;
+vector<Point> upperCenterHistoryV, lowerCenterHistoryV;
+vector<Point> leftLaneStartHistoryV, leftLaneEndHistoryV;
+vector<Point> rightLaneStartHistoryV, rightLaneEndHistoryV;
 
 const cv::Point IDEAL_LEFT_LANE_MARKER_START = cv::Point(720 * imageResizeFactor, VERTICAL_REGION_LOWER);
 const cv::Point IDEAL_LEFT_LANE_MARKER_END = cv::Point(995 * imageResizeFactor, VERTICAL_REGION_UPPER);
@@ -125,6 +131,7 @@ int main()
 	vector<Point> leftLaneFilteredPoints, rightLaneFilteredPoints;
 	std::vector<float> leftLaneLine, rightLaneLine;
 	cv::Point leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint;
+	cv::Point upperPointAverage, lowerPointAverage;
 
 	int totalPointsFound = 0;
 	int twoWayProjectionDistanceForLine = 300 * imageResizeFactor;
@@ -194,7 +201,6 @@ int main()
 					leftLaneLine = findBestFittingCurve(leftLaneFilteredPoints);
 					leftLaneStartPoint = Point(leftLaneLine[2] - leftLaneLine[0] * twoWayProjectionDistanceForLine, leftLaneLine[3] - leftLaneLine[1] * twoWayProjectionDistanceForLine);
 					leftLaneEndPoint = Point(leftLaneLine[2] + leftLaneLine[0] * twoWayProjectionDistanceForLine, leftLaneLine[3] + leftLaneLine[1] * twoWayProjectionDistanceForLine);
-					line(outputMat, leftLaneStartPoint, leftLaneEndPoint, Scalar(0, 0, 1), 2, 8);
 				}
 			}
 
@@ -216,10 +222,20 @@ int main()
 					rightLaneLine = findBestFittingCurve(rightLaneFilteredPoints);
 					rightLaneStartPoint = Point(rightLaneLine[2] - rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] - rightLaneLine[1] * twoWayProjectionDistanceForLine);
 					rightLaneEndPoint = Point(rightLaneLine[2] + rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] + rightLaneLine[1] * twoWayProjectionDistanceForLine);
-					line(outputMat, rightLaneStartPoint, rightLaneEndPoint, Scalar(1, 0, 0), 2, 8);
 				}
 			}
 
+			//Get the average of the lane points from the last frames
+			leftLaneStartHistoryV.push_back(leftLaneStartPoint);
+			leftLaneEndHistoryV.push_back(leftLaneEndPoint);
+			rightLaneStartHistoryV.push_back(rightLaneStartPoint);
+			rightLaneEndHistoryV.push_back(rightLaneEndPoint);
+			leftLaneStartPoint = getPointVectorAverage(leftLaneStartHistoryV);
+			leftLaneEndPoint = getPointVectorAverage(leftLaneEndHistoryV);
+			rightLaneStartPoint = getPointVectorAverage(rightLaneStartHistoryV);
+			rightLaneEndPoint = getPointVectorAverage(rightLaneEndHistoryV);
+			line(outputMat, leftLaneStartPoint, leftLaneEndPoint, Scalar(0, 0, 1), 2, 8);
+			line(outputMat, rightLaneStartPoint, rightLaneEndPoint, Scalar(1, 0, 0), 2, 8);
 			//debug - approximate idealized lane margins
 			line(outputMat, IDEAL_LEFT_LANE_MARKER_START, IDEAL_LEFT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
 			line(outputMat, IDEAL_RIGHT_LANE_MARKER_START, IDEAL_RIGHT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
@@ -328,9 +344,13 @@ int main()
 					1,
 					8);
 
-			plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
+			//plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
 			dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
-			line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
+			upperPointAverage = getPointVectorAverage(upperCenterHistoryV);
+			lowerPointAverage = getPointVectorAverage(lowerCenterHistoryV);
+			circle(outputMat, upperPointAverage, 5, Scalar(124, 200, 10), 2, 8, 0);
+			circle(outputMat, lowerPointAverage, 5, Scalar(124, 200, 10), 2, 8, 0);
+			//line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
 			//outputMat *= 255;
 			//outputMat.convertTo(outputMat, CV_8UC3); 
 
@@ -510,22 +530,22 @@ std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, 
 				histogramOfFeature = HOGHistogramWithTranspose(sampleBox);
 				responseSVM = svm->predict(histogramOfFeature);
 
-				if (responseSVM == 1)
-				{
-					//Mark the cell with a red border
-					cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
-					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
-					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
-					cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
-				}
-				if (responseSVM == -1)
-				{
-					//Mark the cell with a red border
-					cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(255, 0, 0), 1, 8, 0);
-					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(255, 0, 0), 1, 8, 0);
-					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(255, 0, 0), 1, 8, 0);
-					cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(255, 0, 0), 1, 8, 0);
-				}
+				//if (responseSVM == 1)
+				//{
+				//	//Mark the cell with a red border
+				//	cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
+				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
+				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
+				//	cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
+				//}
+				//if (responseSVM == -1)
+				//{
+				//	//Mark the cell with a red border
+				//	cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(255, 0, 0), 1, 8, 0);
+				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(255, 0, 0), 1, 8, 0);
+				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(255, 0, 0), 1, 8, 0);
+				//	cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(255, 0, 0), 1, 8, 0);
+				//}
 
 				if (responseSVM == 1)
 				{
@@ -763,12 +783,44 @@ int getCenterOfLanes(cv::Point leftLaneStartPoint, cv::Point leftLaneEndPoint, c
 		int upperCenter, lowerCenter;
 		upperCenter = (int)(upperRightIntersection.x - upperLeftIntersection.x) / 2 + upperLeftIntersection.x;
 		lowerCenter = (int)(lowerRightIntersection.x - lowerLeftIntersection.x) / 2 + lowerLeftIntersection.x;
+		upperCenterHistoryV.push_back(Point(upperCenter, VERTICAL_REGION_UPPER));
+		lowerCenterHistoryV.push_back(Point(lowerCenter, VERTICAL_REGION_LOWER));
 		int center = (int)(upperCenter + lowerCenter) / 2;
-		if (center > HORIZONTAL_REGION_LEFT && center < HORIZONTAL_REGION_RIGHT)
+		if (center > HORIZONTAL_REGION_LEFT && center < HORIZONTAL_REGION_RIGHT) {
 			return center;
+		}
 		else
 			return HORIZONTAL_CENTER;
 	}
 	else
 		return HORIZONTAL_CENTER;
+}
+
+cv::Point getPointVectorAverage(std::vector<cv::Point> &pointV)
+{
+	int xAverage = 0;
+	int yAverage = 0;
+	int i;
+	//Clear out outliers while they are getting into the vector
+	if (pointV[pointV.size() - 1].x < 0 || pointV[pointV.size() - 1].x > HORIZONTAL_RESOLUTION ||
+		pointV[pointV.size() - 1].y < 0 || pointV[pointV.size() - 1].y > VERTICAL_RESOLUTION)
+	{
+		pointV.pop_back();
+	}
+	if (pointV.size() >= AVERAGING_WINDOW_SIZE)
+	{
+		for (i = 0; i < pointV.size(); i++)
+		{
+			xAverage += pointV[i].x;
+			yAverage += pointV[i].y;
+		}
+		xAverage = (int)xAverage / i;
+		yAverage = (int)yAverage / i;
+		pointV.erase(pointV.begin());
+		return Point(xAverage, yAverage);
+	}
+	else
+	{
+		return pointV[pointV.size() - 1];
+	}
 }
