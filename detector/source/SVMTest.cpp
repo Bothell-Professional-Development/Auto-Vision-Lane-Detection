@@ -355,24 +355,24 @@ int main()
 			//outputMat.convertTo(outputMat, CV_8UC3); 
 
 			//adding in PID Controller visualization
-			double PointZero_x = 960 * imageResizeFactor; //Set for middle of the video
-			double PointZero_y = 1080 * imageResizeFactor; //Set for bottom of the video
+			double PointZero_x = HORIZONTAL_RESOLUTION / 2;
+			double PointZero_y = VERTICAL_RESOLUTION;
 			double PointOne_x = 0;
 			double PointOne_y = 0;
 			double PointTwo_x = 0;
 			double PointTwo_y = 0;
 			double PointThree_x = 0;
-			PointThree_x = dynamicCenterOfLanesXval;  //set to match the dynamic center of lane
-			double PointThree_y = 540 * imageResizeFactor;  //set to match somewhere in the middle of the video.  in future updates, it will be set to the top of our region of interest (probably)
-															//Setting the intermediary points.  Eventually this will need to be updated to take into account the angle of the lane, and the angle of the wheels
+			PointThree_x = upperPointAverage.x;
+			double PointThree_y = upperPointAverage.y;
+			//Setting the intermediary points.  Eventually this will need to be updated to take into account  the angle of the wheels
 			PointOne_x = PointZero_x;
-			PointOne_y = PointZero_y - (PointThree_y / 1.8);  //changing this 1.8 value here will change how the fit line tries to fit.  Will experiment with this more later.
-			PointTwo_x = PointThree_x;
-			PointTwo_y = PointThree_y + (PointThree_y / 1.8);  //same as above comment.
-															   //for sanity/display purposes, show the points with a white line!
-			cv::line(outputMat, cv::Point2f(PointZero_x, PointZero_y), cv::Point2f(PointOne_x, PointOne_y), cv::Scalar(255, 255, 255), 1, 8, 0);
-			cv::line(outputMat, cv::Point2f(PointOne_x, PointOne_y), cv::Point2f(PointTwo_x, PointTwo_y), cv::Scalar(255, 255, 255), 1, 8, 0);
-			cv::line(outputMat, cv::Point2f(PointTwo_x, PointTwo_y), cv::Point2f(PointThree_x, PointThree_y), cv::Scalar(255, 255, 255), 1, 8, 0);
+			PointOne_y = lowerPointAverage.y;
+			PointTwo_x = lowerPointAverage.x;
+			PointTwo_y = lowerPointAverage.y;
+			//for sanity/display purposes, connect the points with a white line!
+			//cv::line(outputMat, cv::Point2f(PointZero_x, PointZero_y), cv::Point2f(PointOne_x, PointOne_y), cv::Scalar(255, 255, 255), 1, 8, 0);
+			//cv::line(outputMat, cv::Point2f(PointOne_x, PointOne_y), cv::Point2f(PointTwo_x, PointTwo_y), cv::Scalar(255, 255, 255), 1, 8, 0);
+			//cv::line(outputMat, cv::Point2f(PointTwo_x, PointTwo_y), cv::Point2f(PointThree_x, PointThree_y), cv::Scalar(255, 255, 255), 1, 8, 0);
 			//some more setup for the actual drawing of lines.
 			double Line_x_origin = 0;
 			double Line_y_origin = 0;
