@@ -52,7 +52,7 @@ bool findLineLineIntersection(const int32_t& x0, const int32_t& y0,
                               const int32_t& x3, const int32_t& y3,
                               int32_t& xOut, int32_t& yOut);
 
-float imageResizeFactor = 1;
+float imageResizeFactor = .5;
 const int32_t HORIZONTAL_RESOLUTION = 1920 * imageResizeFactor;
 const int32_t VERTICAL_RESOLUTION = 1080 * imageResizeFactor;
 const int32_t BOX_WIDTH = 30 * imageResizeFactor;
@@ -355,37 +355,31 @@ int main()
 			//outputMat.convertTo(outputMat, CV_8UC3); 
 
 			//adding in PID Controller visualization
-			double PointZero_x = HORIZONTAL_RESOLUTION / 2;
-			double PointZero_y = VERTICAL_RESOLUTION;
-			double PointOne_x = 0;
-			double PointOne_y = 0;
-			double PointTwo_x = 0;
-			double PointTwo_y = 0;
-			double PointThree_x = 0;
-			PointThree_x = upperPointAverage.x;
-			double PointThree_y = upperPointAverage.y;
+			cv::Point BezPointZero = { HORIZONTAL_RESOLUTION / 2, VERTICAL_RESOLUTION };
+			cv::Point BezPointOne = { 0, 0 };
+			cv::Point BezPointTwo = { 0, 0 };
+			cv::Point BezPointThree = upperPointAverage;
 			//Setting the intermediary points.  Eventually this will need to be updated to take into account  the angle of the wheels
-			PointOne_x = PointZero_x;
-			PointOne_y = lowerPointAverage.y;
-			PointTwo_x = lowerPointAverage.x;
-			PointTwo_y = lowerPointAverage.y;
+			BezPointOne = { BezPointZero.x,lowerPointAverage.y };
+			BezPointTwo = lowerPointAverage;
 			//for sanity/display purposes, connect the points with a white line!
 			//cv::line(outputMat, cv::Point2f(PointZero_x, PointZero_y), cv::Point2f(PointOne_x, PointOne_y), cv::Scalar(255, 255, 255), 1, 8, 0);
 			//cv::line(outputMat, cv::Point2f(PointOne_x, PointOne_y), cv::Point2f(PointTwo_x, PointTwo_y), cv::Scalar(255, 255, 255), 1, 8, 0);
 			//cv::line(outputMat, cv::Point2f(PointTwo_x, PointTwo_y), cv::Point2f(PointThree_x, PointThree_y), cv::Scalar(255, 255, 255), 1, 8, 0);
 			//some more setup for the actual drawing of lines.
-			double Line_x_origin = 0;
-			double Line_y_origin = 0;
-			double Line_x_end = 0;
-			double Line_y_end = 0;
+			cv::Point2f BezLineStart = { 0,0 };
+			cv::Point2f BezLineEnd = { 0,0 };
 			//Time to draw the best fit curve.  TODO: Make it adjustable how many line segments we want to display (because changing it manually is a pain right now)
 			for (double n = 0; n < 10; n++) {
 				//warning, scary math
-				Line_x_origin = pow(1 - (n / 10), 3) * PointZero_x + 3 * pow(1 - (n / 10), 2) * (n / 10) * PointOne_x + 3 * (1 - (n / 10)) * pow((n / 10), 2) * PointTwo_x + pow((n / 10), 3) * PointThree_x;
-				Line_y_origin = pow(1 - (n / 10), 3) * PointZero_y + 3 * pow(1 - (n / 10), 2) * (n / 10) * PointOne_y + 3 * (1 - (n / 10)) * pow((n / 10), 2) * PointTwo_y + pow((n / 10), 3) * PointThree_y;
-				Line_x_end = pow(1 - ((n + 1) / 10), 3) * PointZero_x + 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * PointOne_x + 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * PointTwo_x + pow(((n + 1) / 10), 3) * PointThree_x;
-				Line_y_end = pow(1 - ((n + 1) / 10), 3) * PointZero_y + 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * PointOne_y + 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * PointTwo_y + pow(((n + 1) / 10), 3) * PointThree_y;
-				cv::line(outputMat, cv::Point2f(Line_x_origin, Line_y_origin), cv::Point2f(Line_x_end, Line_y_end), cv::Scalar(255, 0, 5 + (n * 50)), 2, 8, 0);
+				if (n == 0) {
+					BezLineStart = pow(1 - (n / 10), 3) * BezPointZero + 3 * pow(1 - (n / 10), 2) * (n / 10) * BezPointOne + 3 * (1 - (n / 10)) * pow((n / 10), 2) * BezPointTwo + pow((n / 10), 3) * BezPointThree;
+				}
+				else {
+					BezLineStart = BezLineEnd;
+				}
+				BezLineEnd = pow(1 - ((n + 1) / 10), 3) * BezPointZero + 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * BezPointOne + 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * BezPointTwo + pow(((n + 1) / 10), 3) * BezPointThree;
+				cv::line(outputMat, BezLineStart, BezLineEnd, cv::Scalar(255, 0, 5 + (n * 50)), 2, 8, 0);
 				//cv::imshow("test name", outputMat);
 				//cv::waitKey(0);
 			}
