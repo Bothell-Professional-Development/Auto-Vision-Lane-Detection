@@ -52,7 +52,7 @@ bool findLineLineIntersection(const int32_t& x0, const int32_t& y0,
                               const int32_t& x3, const int32_t& y3,
                               int32_t& xOut, int32_t& yOut);
 
-float imageResizeFactor = .5;
+float imageResizeFactor = 1;
 const int32_t HORIZONTAL_RESOLUTION = 1920 * imageResizeFactor;
 const int32_t VERTICAL_RESOLUTION = 1080 * imageResizeFactor;
 const int32_t BOX_WIDTH = 30 * imageResizeFactor;
@@ -354,7 +354,7 @@ int main()
 			//outputMat *= 255;
 			//outputMat.convertTo(outputMat, CV_8UC3); 
 
-			//adding in PID Controller visualization
+			//PID Controller visualization:
 			cv::Point BezPointZero = { HORIZONTAL_RESOLUTION / 2, VERTICAL_RESOLUTION };
 			cv::Point BezPointOne = { 0, 0 };
 			cv::Point BezPointTwo = { 0, 0 };
@@ -362,16 +362,11 @@ int main()
 			//Setting the intermediary points.  Eventually this will need to be updated to take into account  the angle of the wheels
 			BezPointOne = { BezPointZero.x,lowerPointAverage.y };
 			BezPointTwo = lowerPointAverage;
-			//for sanity/display purposes, connect the points with a white line!
-			//cv::line(outputMat, cv::Point2f(PointZero_x, PointZero_y), cv::Point2f(PointOne_x, PointOne_y), cv::Scalar(255, 255, 255), 1, 8, 0);
-			//cv::line(outputMat, cv::Point2f(PointOne_x, PointOne_y), cv::Point2f(PointTwo_x, PointTwo_y), cv::Scalar(255, 255, 255), 1, 8, 0);
-			//cv::line(outputMat, cv::Point2f(PointTwo_x, PointTwo_y), cv::Point2f(PointThree_x, PointThree_y), cv::Scalar(255, 255, 255), 1, 8, 0);
 			//some more setup for the actual drawing of lines.
 			cv::Point2f BezLineStart = { 0,0 };
 			cv::Point2f BezLineEnd = { 0,0 };
 			//Time to draw the best fit curve.  TODO: Make it adjustable how many line segments we want to display (because changing it manually is a pain right now)
-			for (double n = 0; n < 10; n++) {
-				//warning, scary math
+			for (double n = 0; n < 10; n++) {  //important!  n NEEDS to be a double for the math to behave properly.
 				if (n == 0) {
 					BezLineStart = pow(1 - (n / 10), 3) * BezPointZero + 3 * pow(1 - (n / 10), 2) * (n / 10) * BezPointOne + 3 * (1 - (n / 10)) * pow((n / 10), 2) * BezPointTwo + pow((n / 10), 3) * BezPointThree;
 				}
@@ -380,6 +375,7 @@ int main()
 				}
 				BezLineEnd = pow(1 - ((n + 1) / 10), 3) * BezPointZero + 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * BezPointOne + 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * BezPointTwo + pow(((n + 1) / 10), 3) * BezPointThree;
 				cv::line(outputMat, BezLineStart, BezLineEnd, cv::Scalar(255, 0, 5 + (n * 50)), 2, 8, 0);
+				//some debug code for stepping through to see the curve draw bit by bit:
 				//cv::imshow("test name", outputMat);
 				//cv::waitKey(0);
 			}
