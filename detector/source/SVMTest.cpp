@@ -85,6 +85,7 @@ std::wstring string_to_wstring(const std::string& text) {
 	return std::wstring(text.begin(), text.end());
 }
 
+#define FRAME_SKIP 2
 
 int main()
 {
@@ -149,15 +150,16 @@ int main()
 	{
 		//Get the processing time per frame
 		newTime = clock();
-		timePF = (newTime - oldTime) / (CLOCKS_PER_SEC/1000);
-		oldTime = newTime;
-		fps = 1000 / timePF;
-		std::cout << "Processing time/frame " << frameCounter << " : " << timePF << " (" << fps << "fps)" << std::endl;
-		fpsMean += fps;
-		frameCounter++;
 
-		if (frameCounter % 2 ==0)
+		if (frameCounter % FRAME_SKIP ==0)
 		{
+			timePF = (newTime - oldTime) / (CLOCKS_PER_SEC / 1000);
+			oldTime = newTime;
+			fps = 1000 / timePF;
+			std::cout << "Processing time/frame " << frameCounter << " : " << timePF << " (" << fps << "fps)" << std::endl;
+			fpsMean += fps;
+
+
 			resize(frame, resizedImage, cv::Size(HORIZONTAL_RESOLUTION, VERTICAL_RESOLUTION));
 			//resizedImage = frame.clone(); //First try with full resolution
 			cvtColor(resizedImage, resizedImage, CV_BGR2GRAY);
@@ -390,11 +392,13 @@ int main()
 			waitKey(1);
 #endif
 		}
+
+		frameCounter++;
 	}
 
 	if (frameCounter != 0)
 	{
-		fpsMean = (int)fpsMean / frameCounter;
+		fpsMean = (int)fpsMean / (frameCounter / FRAME_SKIP);
 	}
 
 	std::cout << "Average fps rate: " << fpsMean << std::endl;
