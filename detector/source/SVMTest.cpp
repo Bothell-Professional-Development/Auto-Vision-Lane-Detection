@@ -16,6 +16,14 @@
 #include <functional>
 #include <ctime>
 
+#include <csignal>
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <string>
+#include <cmath>
+
 #ifdef _WIN32
 #include <io.h> //Check if file exists
 #define access    _access_s
@@ -86,47 +94,124 @@ std::wstring string_to_wstring(const std::string& text) {
 }
 
 #define FRAME_SKIP 2
-
-int main()
+bool gRunning = true;
+void KillHandler(int signal)
 {
-	common_lib::ConfigFile cfgFile;
-	cfgFile.pullValuesFromFile(CFG_FILE_PATH);
+	gRunning = false;
+}
 
-	//Load video
-	cv::VideoCapture cap;
-	cap.open(cfgFile.readValueOrDefault("DETECTOR_INPUT", ""));
-	if (!cap.isOpened()) // Check for invalid input
+template <class T>
+struct ObjectEvent
+{
+public:
+	inline ObjectEvent() :
+		m_bFlag(false)
+	{}
+
+	inline bool WaitGetReset(T &value)
 	{
-		std::cout << "Could not open or find the video file" << std::endl;
-		return -1;
+		std::unique_lock< std::mutex > lock(m_mutex);
+		m_condition.wait(lock, [&]()->bool { return m_bFlag || !gRunning; });
+		value = m_content;
+		m_bFlag = false;
+
+		return true;
 	}
 
-	//Create and load already trained SVM classifier
-	//Check if file exists
-	
-	if (access(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", "").c_str(), 0) != 0)
+	template< typename R, typename P >
+	bool WaitGetReset(const std::chrono::duration<R, P>& crRelTime, T &value) 
 	{
-		std::cout << "Left SVM file doesn't exist" << std::endl;
-		return -1;
+		std::unique_lock<std::mutex> lock(m_mutex);
+		if (!m_condition.wait_for(lock, crRelTime, [&]()->bool { return m_bFlag || !gRunning; }))
+		{
+			return false;
+		}
+
+		value = m_content;
+		m_bFlag = false;
+		return true;
 	}
-	if (access(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", "").c_str(), 0) != 0)
+
+	inline bool TryGetReset(T &value)
 	{
-		std::cout << "Right SVM file doesn't exist" << std::endl;
-		return -1;
+		std::lock_guard<std::mutex> lock(m_mutex);
+
+		if (m_bFlag)
+		{
+			value = m_content;
+			m_bFlag = false;
+			return true;
+		}
+
+		return false;
 	}
+
+	inline bool SetAndSignal(T &value)
+	{
+		bool bWasSignalled;
+
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+			m_content = value;
+			bWasSignalled = m_bFlag;
+			m_bFlag = true;
+		}
+
+		m_condition.notify_all();
+		return bWasSignalled == false;
+	}
+
+	inline bool Reset()
+	{
+		bool bWasSignalled;
+
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+			bWasSignalled = m_bFlag;
+			m_bFlag = false;
+		}
+
+		return bWasSignalled;
+	}
+
+	inline bool IsSet() const { return m_bFlag; }
+
+private:
+	T m_content;
+
+	bool m_bFlag;
+	mutable std::mutex m_mutex;
+	mutable std::condition_variable m_condition;
+};
+
+struct InputContainer
+{
+	cv::Mat frame;
+};
+
+struct OutputContainer
+{
+	cv::Mat outputMat;
+	int timePF = 1; 
+	int frameCounter = 0;
+	int totalPointsFound = 0;
+};
+
+void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>& process_input, ObjectEvent<OutputContainer>& process_output)
+{
+	using namespace std::chrono_literals;
+
 	cv::Ptr<SVM> svmLeft = SVM::create();
 	svmLeft = SVM::load(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", ""));
 
 	cv::Ptr<SVM> svmRight = SVM::create();
 	svmRight = SVM::load(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", ""));
-	
+
 	if (svmLeft->empty() || svmRight->empty())
 	{
 		std::cout << "SVM file corrupted" << std::endl;
-		return -1;
+		exit(-1);
 	}
-
-	cv::Mat frame, resizedImage, outputMat;
 
 	vector<Point> leftLaneUnfilteredPoints, rightLaneUnfilteredPoints;
 	vector<Point> leftLaneFilteredPoints, rightLaneFilteredPoints;
@@ -134,54 +219,56 @@ int main()
 	cv::Point leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint;
 	cv::Point upperPointAverage, lowerPointAverage;
 
-	int totalPointsFound = 0;
 	int twoWayProjectionDistanceForLine = 300 * imageResizeFactor;
 
 	//These are just for calculating the fps ratio
-	int timePF = 1;
-	float fps;
+
+
 	clock_t oldTime = clock();
 	clock_t newTime;
-	int fpsMean = 0;
-	int frameCounter = 0;
 	int lastKnownCenterX = HORIZONTAL_CENTER;
 
-	while (cap.read(frame) && frame.data != NULL)
+	InputContainer input;
+	OutputContainer output;
+	cv::Mat resizedImage;
+	//while (gRunning && process_input.WaitGetReset<double, std::milli>(1500ms, input))
+	while (gRunning && process_input.WaitGetReset(input))
 	{
+		if (!gRunning)
+		{
+			break;
+		}
+
 		//Get the processing time per frame
 		newTime = clock();
+		output.frameCounter++;
 
-		if (frameCounter % FRAME_SKIP ==0)
+		if (output.frameCounter % FRAME_SKIP ==0)
 		{
-			timePF = (newTime - oldTime) / (CLOCKS_PER_SEC / 1000);
+			output.timePF = (newTime - oldTime) / (CLOCKS_PER_SEC / 1000);
 			oldTime = newTime;
-			fps = 1000 / timePF;
-			std::cout << "Processing time/frame " << frameCounter << " : " << timePF << " (" << fps << "fps)" << std::endl;
-			fpsMean += fps;
-
-
-			resize(frame, resizedImage, cv::Size(HORIZONTAL_RESOLUTION, VERTICAL_RESOLUTION));
+			resize(input.frame, resizedImage, cv::Size(HORIZONTAL_RESOLUTION, VERTICAL_RESOLUTION));
 			//resizedImage = frame.clone(); //First try with full resolution
 			cvtColor(resizedImage, resizedImage, CV_BGR2GRAY);
 			resizedImage.convertTo(resizedImage, CV_32FC1); //Grayscale
 			resizedImage /= 255;
 
 			//Only for visualization purposes. Should be removed from final product
-			resizedImage.convertTo(outputMat, CV_32FC3);
-			cvtColor(outputMat, outputMat, CV_GRAY2BGR);
+			resizedImage.convertTo(output.outputMat, CV_32FC3);
+			cvtColor(output.outputMat, output.outputMat, CV_GRAY2BGR);
 
 			// TESTING: Mark the Region Of Interest ROI
-			cv::line(outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Scalar(0, 255, 0), 2, 8, 0);
-			cv::line(outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
-			cv::line(outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
-			cv::line(outputMat, cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
+			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Scalar(0, 255, 0), 2, 8, 0);
+			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
+			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
+			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
 			//imshow("ROI", resizedImage);
 			//waitKey(0);
 
 
-			leftLaneUnfilteredPoints = getSVMPrediction(HORIZONTAL_REGION_LEFT, dynamicCenterOfLanesXval, resizedImage, outputMat, svmLeft);
-			rightLaneUnfilteredPoints = getSVMPrediction(dynamicCenterOfLanesXval, HORIZONTAL_REGION_RIGHT, resizedImage, outputMat, svmRight);
-			totalPointsFound += leftLaneUnfilteredPoints.size() + rightLaneUnfilteredPoints.size();
+			leftLaneUnfilteredPoints = getSVMPrediction(HORIZONTAL_REGION_LEFT, dynamicCenterOfLanesXval, resizedImage, output.outputMat, svmLeft);
+			rightLaneUnfilteredPoints = getSVMPrediction(dynamicCenterOfLanesXval, HORIZONTAL_REGION_RIGHT, resizedImage, output.outputMat, svmRight);
+			output.totalPointsFound += leftLaneUnfilteredPoints.size() + rightLaneUnfilteredPoints.size();
 
 			//Find a crude line first
 			if (leftLaneUnfilteredPoints.size() > 2)
@@ -236,13 +323,13 @@ int main()
 			leftLaneEndPoint = getPointVectorAverage(leftLaneEndHistoryV);
 			rightLaneStartPoint = getPointVectorAverage(rightLaneStartHistoryV);
 			rightLaneEndPoint = getPointVectorAverage(rightLaneEndHistoryV);
-			line(outputMat, leftLaneStartPoint, leftLaneEndPoint, Scalar(0, 0, 1), 2, 8);
-			line(outputMat, rightLaneStartPoint, rightLaneEndPoint, Scalar(1, 0, 0), 2, 8);
+			line(output.outputMat, leftLaneStartPoint, leftLaneEndPoint, Scalar(0, 0, 1), 2, 8);
+			line(output.outputMat, rightLaneStartPoint, rightLaneEndPoint, Scalar(1, 0, 0), 2, 8);
 			//debug - approximate idealized lane margins
-			line(outputMat, IDEAL_LEFT_LANE_MARKER_START, IDEAL_LEFT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
-			line(outputMat, IDEAL_RIGHT_LANE_MARKER_START, IDEAL_RIGHT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
-			line(outputMat, ADJACENT_LEFT_LANE_MARKER_START, ADJACENT_LEFT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
-			line(outputMat, ADJACENT_RIGHT_LANE_MARKER_START, ADJACENT_RIGHT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
+			line(output.outputMat, IDEAL_LEFT_LANE_MARKER_START, IDEAL_LEFT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
+			line(output.outputMat, IDEAL_RIGHT_LANE_MARKER_START, IDEAL_RIGHT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
+			line(output.outputMat, ADJACENT_LEFT_LANE_MARKER_START, ADJACENT_LEFT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
+			line(output.outputMat, ADJACENT_RIGHT_LANE_MARKER_START, ADJACENT_RIGHT_LANE_MARKER_END, Scalar(0, 127, 127), 1, 8);
 
 			//debug - predicted lane center
 			int laneCenterX = HORIZONTAL_CENTER;
@@ -331,7 +418,7 @@ int main()
 			std::ostringstream str;
 			str << "Out: " << laneCenterX - ((IDEAL_LEFT_LANE_MARKER_START.x + IDEAL_RIGHT_LANE_MARKER_START.x) / 2);
 
-			putText(outputMat, str.str(), cvPoint(HORIZONTAL_CENTER, VERTICAL_REGION_LOWER + 20),
+			putText(output.outputMat, str.str(), cvPoint(HORIZONTAL_CENTER, VERTICAL_REGION_LOWER + 20),
 				FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200, 200, 250), 1, CV_AA);
 
 
@@ -340,18 +427,18 @@ int main()
 			//	Scalar(0, 127, 0),
 			//	1,
 			//	8);
-			line(outputMat, cv::Point((leftHorizonIntersectionX + rightHorizonIntersectionX) / 2, horizonY),
-					cv::Point(laneCenterX, VERTICAL_REGION_LOWER),
-					Scalar(0, 127, 0),
-					1,
-					8);
+			line(output.outputMat, cv::Point((leftHorizonIntersectionX + rightHorizonIntersectionX) / 2, horizonY),
+				cv::Point(laneCenterX, VERTICAL_REGION_LOWER),
+				Scalar(0, 127, 0),
+				1,
+				8);
 
 			//plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
 			dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
 			upperPointAverage = getPointVectorAverage(upperCenterHistoryV);
 			lowerPointAverage = getPointVectorAverage(lowerCenterHistoryV);
-			circle(outputMat, upperPointAverage, 5, Scalar(124, 200, 10), 2, 8, 0);
-			circle(outputMat, lowerPointAverage, 5, Scalar(124, 200, 10), 2, 8, 0);
+			circle(output.outputMat, upperPointAverage, 5, Scalar(124, 200, 10), 2, 8, 0);
+			circle(output.outputMat, lowerPointAverage, 5, Scalar(124, 200, 10), 2, 8, 0);
 			//line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
 			//outputMat *= 255;
 			//outputMat.convertTo(outputMat, CV_8UC3); 
@@ -376,7 +463,7 @@ int main()
 					BezLineStart = BezLineEnd;
 				}
 				BezLineEnd = pow(1 - ((n + 1) / 10), 3) * BezPointZero + 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * BezPointOne + 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * BezPointTwo + pow(((n + 1) / 10), 3) * BezPointThree;
-				cv::line(outputMat, BezLineStart, BezLineEnd, cv::Scalar(255, 0, 5 + (n * 50)), 2, 8, 0);
+				cv::line(output.outputMat, BezLineStart, BezLineEnd, cv::Scalar(255, 0, 5 + (n * 50)), 2, 8, 0);
 				//some debug code for stepping through to see the curve draw bit by bit:
 				//cv::imshow("test name", outputMat);
 				//cv::waitKey(0);
@@ -387,22 +474,203 @@ int main()
 			//outputMat.convertTo(outputMat, CV_8UC3); 
 			//imwrite("D:/WorkFolder/LaneDetectionTrainingData/SVM_Results.jpg", outputMat);
 			//return -1;
-#if WIN32
-			imshow("Classification", outputMat);
-			waitKey(1);
-#endif
 		}
+	
+		process_output.SetAndSignal(output);
+	}
+}
 
-		frameCounter++;
+static const int bufferSize = 10;
+
+double StdDev(int* new_value, double average, int size)
+{
+	int sum = 0;
+	for (int i = 0; i < size; ++i)
+	{
+		sum += (new_value[i] - average) * (new_value[i] - average);
 	}
 
-	if (frameCounter != 0)
+	return std::sqrt(sum / size);
+}
+int fpsFilteredMean(int new_value)
+{
+	static int buffer[bufferSize] = { 0 };
+	static unsigned int idx = 0;
+	static double lowerBound = 0;
+	static double average = 0;
+	static double upperBound = 0;
+
+	if (++idx <= bufferSize)
 	{
-		fpsMean = (int)fpsMean / (frameCounter / FRAME_SKIP);
+		double scaling = 1. / (double)idx;
+
+		buffer[idx - 1] = new_value;
+		average = (new_value * scaling) + (average * (1 - scaling));
+
+		std::cout << "                                                     Average: " << average << "\n";
+
+		if (idx == bufferSize)
+		{
+			double stdDev = StdDev(buffer, average, bufferSize);
+			lowerBound = average - (stdDev * 2);
+			upperBound = average + (stdDev * 2);
+
+			std::cout << "                                                     lowerBound: " << lowerBound << "\n";
+			std::cout << "                                                     upperBound: " << upperBound << "\n";
+
+			for (int *f = (buffer + bufferSize - 1); f >= buffer; --f)
+			{
+				if (((*f) > upperBound) || ((*f) < lowerBound))
+				{
+					std::cout << "                                                     Bad:  " << (*f) << " (" << lowerBound << " < " << upperBound << ")\n";
+
+					//if (f == (buffer + bufferSize - 1))
+					//{
+					//	std::cout << "                                                     Outted: ";
+					//}
+
+					//std::cout << (*f);
+					(*f) = 0;
+					--idx;
+				}
+				else
+				{
+					std::cout << "                                                     Good: " << (*f) << " (" << lowerBound << " < " << upperBound << ")\n";
+				}
+			}
+
+			if (idx < bufferSize)
+			{
+				//std::cout << "\n";
+
+				average = 0;
+				for (int i = 0; i < idx; ++i)
+				{
+					average += buffer[i];
+				}
+
+				average /= idx;
+			}
+
+			std::cout << "                                                     "; 
+			for (int i = 0; i < bufferSize; ++i)
+			{
+				std::cout << buffer[i] << " ";
+			}
+			std::cout << "\n";
+		}
+	}
+
+	else if (lowerBound < new_value && upperBound > new_value)
+	{
+		buffer[(idx - 1) % bufferSize] = new_value;
+
+		average = (new_value * 0.1) + (average * 0.9);
+
+		double stdDev = StdDev(buffer, average, bufferSize);
+
+		if (stdDev * 4 > average * 0.4)
+		{
+			lowerBound = average - (stdDev * 4);
+			upperBound = average + (stdDev * 4);
+		}
+		else
+		{
+			lowerBound = average - (average * 0.4);
+			upperBound = average + (average * 0.4);
+		}
+
+		std::cout << "                                                     avg (" << average << ") low (" << lowerBound << ") high (" << upperBound << ")" << "   ";
+		for (int i = 0; i < bufferSize; ++i)
+		{
+			std::cout << buffer[i] << " ";
+		}
+		std::cout << "\n";
+	}
+
+	return average;
+}
+
+int main()
+{
+	std::signal(SIGINT, KillHandler);
+
+	common_lib::ConfigFile cfgFile;
+	cfgFile.pullValuesFromFile(CFG_FILE_PATH);
+
+	//Load video
+	cv::VideoCapture cap;
+	cap.open(cfgFile.readValueOrDefault("DETECTOR_INPUT", ""));
+	if (!cap.isOpened()) // Check for invalid input
+	{
+		std::cout << "Could not open or find the video file" << std::endl;
+		return -1;
+	}
+
+	//Create and load already trained SVM classifier
+	//Check if file exists
+	
+	if (access(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", "").c_str(), 0) != 0)
+	{
+		std::cout << "Left SVM file doesn't exist" << std::endl;
+		exit(-1);
+	}
+	if (access(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", "").c_str(), 0) != 0)
+	{
+		std::cout << "Right SVM file doesn't exist" << std::endl;
+		exit(-1);
+	}
+
+	ObjectEvent<InputContainer> process_input;
+	ObjectEvent<OutputContainer> process_output;
+	std::thread processingThread(FrameProcessor, std::ref(cfgFile), std::ref(process_input), std::ref(process_output));
+
+	InputContainer input;
+	OutputContainer output;
+	float fps;
+	int fpsMean = 0;
+	int droppedCycles = 0, caughtCycles = 0;
+
+	while (gRunning && cap.read(input.frame) && input.frame.data != NULL)
+	{
+		process_input.SetAndSignal(input);
+
+		using namespace std::chrono_literals;
+		std::this_thread::sleep_for(10ms);
+
+		if (process_output.TryGetReset(output))
+		{
+			fps = 1000 / output.timePF;
+			std::cout << "Processing time/frame " << output.frameCounter << " : " << output.timePF << " (" << fps << "fps)" << std::endl;
+			fpsMean = fpsFilteredMean(fps);
+#if WIN32
+			if (output.outputMat.size.p && *(output.outputMat.size.p))
+			{
+				imshow("Classification", output.outputMat);
+				waitKey(1);
+			}
+#endif
+			caughtCycles++;
+		}
+		else
+		{
+			droppedCycles++;
+		}
+	}
+
+	gRunning = false;
+
+	if (output.frameCounter > FRAME_SKIP)
+	{
+		fpsMean = (int)fpsMean / (output.frameCounter / FRAME_SKIP);
 	}
 
 	std::cout << "Average fps rate: " << fpsMean << std::endl;
-	cout << "Total points found: " << totalPointsFound << endl;
+	std::cout << "Dropped / Caught: " << droppedCycles << "/" << caughtCycles << std::endl;
+
+	processingThread.join();
+
+	std::cout << "Total points found: " << output.totalPointsFound << std::endl;
 	
 	return 0;
 }
@@ -795,6 +1063,12 @@ cv::Point getPointVectorAverage(std::vector<cv::Point> &pointV)
 	int xAverage = 0;
 	int yAverage = 0;
 	int i;
+
+	if (pointV.size() < 2)
+	{
+		return cv::Point(HORIZONTAL_RESOLUTION / 2, VERTICAL_RESOLUTION / 2);
+	}
+
 	//Clear out outliers while they are getting into the vector
 	if (pointV[pointV.size() - 1].x < 0 || pointV[pointV.size() - 1].x > HORIZONTAL_RESOLUTION ||
 		pointV[pointV.size() - 1].y < 0 || pointV[pointV.size() - 1].y > VERTICAL_RESOLUTION)
