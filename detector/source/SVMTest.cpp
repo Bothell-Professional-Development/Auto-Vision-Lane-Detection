@@ -8,6 +8,7 @@
 #include <opencv2/ml.hpp>
 
 #include "ConfigFile.h"
+#include "PidController.h"
 #include "generated.h"
 
 #include <iostream> //for make_pair
@@ -60,7 +61,8 @@ bool findLineLineIntersection(const int32_t& x0, const int32_t& y0,
                               const int32_t& x3, const int32_t& y3,
                               int32_t& xOut, int32_t& yOut);
 
-float imageResizeFactor = 1;
+float imageResizeFactor = 0.5;
+#define FRAME_SKIP 1
 const int32_t HORIZONTAL_RESOLUTION = 1920 * imageResizeFactor;
 const int32_t VERTICAL_RESOLUTION = 1080 * imageResizeFactor;
 const int32_t BOX_WIDTH = 30 * imageResizeFactor;
@@ -93,7 +95,6 @@ std::wstring string_to_wstring(const std::string& text) {
 	return std::wstring(text.begin(), text.end());
 }
 
-#define FRAME_SKIP 2
 bool gRunning = true;
 void KillHandler(int signal)
 {
@@ -195,6 +196,11 @@ struct OutputContainer
 	int timePF = 1; 
 	int frameCounter = 0;
 	int totalPointsFound = 0;
+
+	cv::Point BezPointZero;
+	cv::Point BezPointOne;
+	cv::Point BezPointTwo;
+	cv::Point BezPointThree;
 };
 
 void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>& process_input, ObjectEvent<OutputContainer>& process_output)
@@ -217,7 +223,6 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 	vector<Point> leftLaneFilteredPoints, rightLaneFilteredPoints;
 	std::vector<float> leftLaneLine, rightLaneLine;
 	cv::Point leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint;
-	cv::Point upperPointAverage, lowerPointAverage;
 
 	int twoWayProjectionDistanceForLine = 300 * imageResizeFactor;
 
@@ -231,11 +236,12 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 	InputContainer input;
 	OutputContainer output;
 	cv::Mat resizedImage;
-	//while (gRunning && process_input.WaitGetReset<double, std::milli>(1500ms, input))
+	//while (gRunning && detection_input.WaitGetReset<double, std::milli>(1500ms, input))
 	while (gRunning && process_input.WaitGetReset(input))
 	{
 		if (!gRunning)
 		{
+			std::cout << "gRunning stopped\n";
 			break;
 		}
 
@@ -243,7 +249,7 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 		newTime = clock();
 		output.frameCounter++;
 
-		if (output.frameCounter % FRAME_SKIP ==0)
+		if (output.frameCounter % FRAME_SKIP == 0)
 		{
 			output.timePF = (newTime - oldTime) / (CLOCKS_PER_SEC / 1000);
 			oldTime = newTime;
@@ -435,34 +441,42 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 
 			//plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
 			dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
-			upperPointAverage = getPointVectorAverage(upperCenterHistoryV);
-			lowerPointAverage = getPointVectorAverage(lowerCenterHistoryV);
-			circle(output.outputMat, upperPointAverage, 5, Scalar(124, 200, 10), 2, 8, 0);
-			circle(output.outputMat, lowerPointAverage, 5, Scalar(124, 200, 10), 2, 8, 0);
+			output.BezPointThree = getPointVectorAverage(upperCenterHistoryV);
+			output.BezPointTwo = getPointVectorAverage(lowerCenterHistoryV);
+			circle(output.outputMat, output.BezPointThree, 5, Scalar(124, 200, 10), 2, 8, 0);
+			circle(output.outputMat, output.BezPointTwo, 5, Scalar(124, 200, 10), 2, 8, 0);
 			//line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
 			//outputMat *= 255;
 			//outputMat.convertTo(outputMat, CV_8UC3); 
 
 			//PID Controller visualization:
-			cv::Point BezPointZero = { HORIZONTAL_RESOLUTION / 2, VERTICAL_RESOLUTION };
-			cv::Point BezPointOne = { 0, 0 };
-			cv::Point BezPointTwo = { 0, 0 };
-			cv::Point BezPointThree = upperPointAverage;
+			output.BezPointZero = { HORIZONTAL_RESOLUTION / 2, VERTICAL_RESOLUTION };
 			//Setting the intermediary points.  Eventually this will need to be updated to take into account  the angle of the wheels
-			BezPointOne = { BezPointZero.x,lowerPointAverage.y };
-			BezPointTwo = lowerPointAverage;
+			output.BezPointOne = { output.BezPointZero.x, output.BezPointTwo.y };
+
 			//some more setup for the actual drawing of lines.
 			cv::Point2f BezLineStart = { 0,0 };
 			cv::Point2f BezLineEnd = { 0,0 };
 			//Time to draw the best fit curve.  TODO: Make it adjustable how many line segments we want to display (because changing it manually is a pain right now)
-			for (double n = 0; n < 10; n++) {  //important!  n NEEDS to be a double for the math to behave properly.
-				if (n == 0) {
-					BezLineStart = pow(1 - (n / 10), 3) * BezPointZero + 3 * pow(1 - (n / 10), 2) * (n / 10) * BezPointOne + 3 * (1 - (n / 10)) * pow((n / 10), 2) * BezPointTwo + pow((n / 10), 3) * BezPointThree;
+			for (double n = 0; n < 10; n++) //important!  n NEEDS to be a double for the math to behave properly.
+			{
+				if (n == 0)
+				{
+					BezLineStart = 
+						  pow(1 - (n / 10), 3) * output.BezPointZero
+						+ 3 * pow(1 - (n / 10), 2) * (n / 10) * output.BezPointOne
+						+ 3 * (1 - (n / 10)) * pow((n / 10), 2) * output.BezPointTwo
+						+ pow((n / 10), 3) * output.BezPointThree;
 				}
-				else {
+				else
+				{
 					BezLineStart = BezLineEnd;
 				}
-				BezLineEnd = pow(1 - ((n + 1) / 10), 3) * BezPointZero + 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * BezPointOne + 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * BezPointTwo + pow(((n + 1) / 10), 3) * BezPointThree;
+
+				BezLineEnd = pow(1 - ((n + 1) / 10), 3) * output.BezPointZero
+					       + 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * output.BezPointOne
+					       + 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * output.BezPointTwo
+					       + pow(((n + 1) / 10), 3) * output.BezPointThree;
 				cv::line(output.outputMat, BezLineStart, BezLineEnd, cv::Scalar(255, 0, 5 + (n * 50)), 2, 8, 0);
 				//some debug code for stepping through to see the curve draw bit by bit:
 				//cv::imshow("test name", outputMat);
@@ -478,7 +492,76 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 	
 		process_output.SetAndSignal(output);
 	}
+
+	std::cout << "FrameProcessor ended\n";
 }
+
+//bool newLaneCenterAvailable = 0; //set to 1 when we get a new center of lane sent to us from that module.  This can probably be gotten rid of later for a better way of interrupting the loop below.
+//double steerAngle = 0.0;
+//
+//void PIDProcessor(ObjectEvent<OutputContainer>& process_input)
+//{
+//	int curveProgress = 0; //values from 0-100 for what percentage of the way through the curve the vehicle is (0 is the start, 100 is the end).  Later on, anything over 100 is set to 100, just in case.
+//							//if we get lots of inputs from the video processing, we can change this to make updates in larger incriments just by changing the two instances of "100" below.
+//							//Sidebar: does that mean I should have probably used a variable for that instead?
+//	OutputContainer container;
+//	
+//	//double curveProgress = 0; //This is the angle which will output to the actual thing which will steer the vehicle.
+//	do
+//	{
+//		if (process_input.TryGetReset(container))
+//		{
+//			curveProgress = 0;
+//		}
+//
+//		steerAngle = set_steering_module(steerAngle);
+//		steerAngle = bezier_calc(curveProgress/100, steerAngle, container.BezPointZero, container.BezPointOne, container.BezPointTwo, container.BezPointThree);
+//		//steerAngle = bezier_calc(steerAngle, container.lowerPointAverage.x, container.lowerPointAverage. laneAngle, curveProgress / 100); //adjust to the new steering angle
+//		//curveProgress += 0.01;
+//		curveProgress += 1;
+//	} while ((curveProgress % 1) && (newLaneCenterAvailable == 0) && gRunning);
+//	
+//	//steerAngle = bezier_calc(steerAngle, laneCenter, laneAngle, (curveProgress + 100) / 2); //Once we get a new update for the lance center, make one last steer command to be at the mid point between where we are on the curve, and the end of the curve.
+//}
+//
+
+class Fps30Video
+{
+public:
+	Fps30Video(cv::VideoCapture &capture) :
+		m_capture(&capture),
+		m_time (clock())
+	{}
+
+	~Fps30Video()
+	{
+		if (m_capture)
+		{
+			m_capture = nullptr;
+		}
+	}
+
+	bool read(cv::OutputArray &image)
+	{
+		using namespace std::chrono_literals;
+
+		clock_t newTime = clock();
+		bool read = false;
+		double diff = difftime(newTime, m_time);
+		if (diff > 0.040)
+		{
+			m_capture->read(image);
+			read = true;
+			m_time = clock();
+		}
+
+		return read;
+	}
+
+private:
+	cv::VideoCapture *m_capture;
+	clock_t m_time;
+};
 
 static const int bufferSize = 10;
 
@@ -507,7 +590,7 @@ int fpsFilteredMean(int new_value)
 		buffer[idx - 1] = new_value;
 		average = (new_value * scaling) + (average * (1 - scaling));
 
-		std::cout << "                                                     Average: " << average << "\n";
+		//std::cout << "                                                     Average: " << average << "\n";
 
 		if (idx == bufferSize)
 		{
@@ -515,8 +598,8 @@ int fpsFilteredMean(int new_value)
 			lowerBound = average - (stdDev * 2);
 			upperBound = average + (stdDev * 2);
 
-			std::cout << "                                                     lowerBound: " << lowerBound << "\n";
-			std::cout << "                                                     upperBound: " << upperBound << "\n";
+			//std::cout << "                                                     lowerBound: " << lowerBound << "\n";
+			//std::cout << "                                                     upperBound: " << upperBound << "\n";
 
 			for (int *f = (buffer + bufferSize - 1); f >= buffer; --f)
 			{
@@ -533,10 +616,10 @@ int fpsFilteredMean(int new_value)
 					(*f) = 0;
 					--idx;
 				}
-				else
-				{
-					std::cout << "                                                     Good: " << (*f) << " (" << lowerBound << " < " << upperBound << ")\n";
-				}
+				//else
+				//{
+				//	std::cout << "                                                     Good: " << (*f) << " (" << lowerBound << " < " << upperBound << ")\n";
+				//}
 			}
 
 			if (idx < bufferSize)
@@ -552,12 +635,12 @@ int fpsFilteredMean(int new_value)
 				average /= idx;
 			}
 
-			std::cout << "                                                     "; 
-			for (int i = 0; i < bufferSize; ++i)
-			{
-				std::cout << buffer[i] << " ";
-			}
-			std::cout << "\n";
+			//std::cout << "                                                     "; 
+			//for (int i = 0; i < bufferSize; ++i)
+			//{
+			//	std::cout << buffer[i] << " ";
+			//}
+			//std::cout << "\n";
 		}
 	}
 
@@ -580,12 +663,12 @@ int fpsFilteredMean(int new_value)
 			upperBound = average + (average * 0.4);
 		}
 
-		std::cout << "                                                     avg (" << average << ") low (" << lowerBound << ") high (" << upperBound << ")" << "   ";
-		for (int i = 0; i < bufferSize; ++i)
-		{
-			std::cout << buffer[i] << " ";
-		}
-		std::cout << "\n";
+		//std::cout << "                                                     avg (" << average << ") low (" << lowerBound << ") high (" << upperBound << ")" << "   ";
+		//for (int i = 0; i < bufferSize; ++i)
+		//{
+		//	std::cout << buffer[i] << " ";
+		//}
+		//std::cout << "\n";
 	}
 
 	return average;
@@ -594,6 +677,9 @@ int fpsFilteredMean(int new_value)
 int main()
 {
 	std::signal(SIGINT, KillHandler);
+
+	clock_t prog_start_time = clock();
+	clock_t prog_end_time;
 
 	common_lib::ConfigFile cfgFile;
 	cfgFile.pullValuesFromFile(CFG_FILE_PATH);
@@ -621,28 +707,53 @@ int main()
 		exit(-1);
 	}
 
-	ObjectEvent<InputContainer> process_input;
-	ObjectEvent<OutputContainer> process_output;
-	std::thread processingThread(FrameProcessor, std::ref(cfgFile), std::ref(process_input), std::ref(process_output));
+	ObjectEvent<InputContainer> detection_input;
+	ObjectEvent<OutputContainer> detection_output;
+	std::thread processingThread(FrameProcessor, std::ref(cfgFile), std::ref(detection_input), std::ref(detection_output));
+	Fps30Video video{ cap };
 
 	InputContainer input;
 	OutputContainer output;
 	float fps;
 	int fpsMean = 0;
 	int droppedCycles = 0, caughtCycles = 0;
+	int curveProgress = 0;
+	double steerAngle = 0.0;
 
-	while (gRunning && cap.read(input.frame) && input.frame.data != NULL)
+	while (gRunning)
 	{
-		process_input.SetAndSignal(input);
+		//if (cap.read(input.frame))// && input.frame.data != NULL)
+		if (video.read(input.frame))
+		{
+			//if (input.frame.data == NULL)
+			if (input.frame.empty())
+			{
+				break;
+			}
 
-		using namespace std::chrono_literals;
-		std::this_thread::sleep_for(10ms);
+			if (detection_input.SetAndSignal(input))
+			{
+				caughtCycles++;
+			}
+			else
+			{
+				droppedCycles++;
+			}
+		}
+		else
+		{
+			droppedCycles++;
+		}
 
-		if (process_output.TryGetReset(output))
+		//using namespace std::chrono_literals;
+		//std::this_thread::sleep_for(10ms);
+
+		if (detection_output.TryGetReset(output))
 		{
 			fps = 1000 / output.timePF;
 			std::cout << "Processing time/frame " << output.frameCounter << " : " << output.timePF << " (" << fps << "fps)" << std::endl;
-			fpsMean = fpsFilteredMean(fps);
+			// fpsMean = fpsFilteredMean(fps);
+			fpsMean += fps;
 #if WIN32
 			if (output.outputMat.size.p && *(output.outputMat.size.p))
 			{
@@ -650,15 +761,20 @@ int main()
 				waitKey(1);
 			}
 #endif
-			caughtCycles++;
+			curveProgress = 0;
 		}
-		else
-		{
-			droppedCycles++;
-		}
+
+		steerAngle = set_steering_module(steerAngle);
+		steerAngle = bezier_calc(curveProgress / 100, steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree);
+		curveProgress = (curveProgress + 1) % 100;
+		std::cout << "Steer Angle " << steerAngle << " ( at " << curveProgress << " )" << std::endl;
 	}
 
-	gRunning = false;
+	//gRunning = false;
+	std::raise(SIGINT);
+
+	using namespace std::chrono_literals;
+	std::this_thread::sleep_for(10ms);
 
 	if (output.frameCounter > FRAME_SKIP)
 	{
@@ -668,8 +784,13 @@ int main()
 	std::cout << "Average fps rate: " << fpsMean << std::endl;
 	std::cout << "Dropped / Caught: " << droppedCycles << "/" << caughtCycles << std::endl;
 
-	processingThread.join();
+	prog_end_time = clock();
+	std::cout << "Runtime : " << difftime(prog_end_time, prog_start_time) / (double)(CLOCKS_PER_SEC) << "\n";
 
+	processingThread.join();
+	//controlThread.join();
+
+	std::cout << "Runtime : " << difftime(prog_end_time, prog_start_time) << "\n";
 	std::cout << "Total points found: " << output.totalPointsFound << std::endl;
 	
 	return 0;
