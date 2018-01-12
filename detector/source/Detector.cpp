@@ -303,7 +303,7 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			//outputMat.convertTo(outputMat, CV_8UC3); 
 
 			//PID Controller visualization:
-			output.BezPointZero = { HORIZONTAL_RESOLUTION / 2, VERTICAL_RESOLUTION };
+			output.BezPointZero = { (float)HORIZONTAL_RESOLUTION / 2.f, (float)VERTICAL_RESOLUTION };
 			//Setting the intermediary points.  Eventually this will need to be updated to take into account  the angle of the wheels
 			output.BezPointOne = { output.BezPointZero.x, output.BezPointTwo.y };
 

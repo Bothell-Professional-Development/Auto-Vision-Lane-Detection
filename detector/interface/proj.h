@@ -115,8 +115,8 @@ struct OutputContainer
 	int frameCounter = 0;
 	int totalPointsFound = 0;
 
-	cv::Point BezPointZero;
-	cv::Point BezPointOne;
-	cv::Point BezPointTwo;
-	cv::Point BezPointThree;
+	cv::Point2f BezPointZero;
+	cv::Point2f BezPointOne;
+	cv::Point2f BezPointTwo;
+	cv::Point2f BezPointThree;
 };

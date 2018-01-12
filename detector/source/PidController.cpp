@@ -9,7 +9,7 @@
 //double outputAngle = 0; //This is the angle which will output to the actual thing which will steer the vehicle.
 
 //double bezier_calc(double wheelAngle, double laneCenter, double laneAngle, double progressPoint)
-double bezier_calc(double progressPoint, double wheelAngle, cv::Point &PointZero, cv::Point &PointOne, cv::Point &PointTwo, cv::Point &PointThree)
+double bezier_calc(float progressPoint, float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointOne, cv::Point2f &PointTwo, cv::Point2f &PointThree)
 {
 	//deatils: en.wikipedia.org/wiki/B%C3%A9zier_curve
 	////Check incoming values which need to be restricted for the math to work.
@@ -31,7 +31,7 @@ double bezier_calc(double progressPoint, double wheelAngle, cv::Point &PointZero
 	//getting a bit ahead of myself, since this is what this point needs to be before the math
 	//might be static, but needs to be set based on where we have confidence the center of the lane is vertically
 	//cv::Point PointThree = { laneCenter, 120 };
-	cv::Point Result = { 0, 0 };
+	cv::Point2f Result = { 0, 0 };
 
 	//double OutputAngle = 0;
 	//Converting angles from degrees to radians because math.
@@ -39,7 +39,7 @@ double bezier_calc(double progressPoint, double wheelAngle, cv::Point &PointZero
 	//laneAngle = Geometry::DegToRad(laneAngle);
 
 	//Step one, get all 4 points  (the 30's should eventually be replaced by some fraction of PointThree (or some other value) but that all depends on if we end up getting that in as a variable)
-	PointOne = { (int)(30. * sin(wheelAngle) + (double)(PointZero.x)), (int)(30. * cos(wheelAngle) + (double)(PointZero.y)) };
+	PointOne = { (30.f * sin(wheelAngle) + PointZero.x), (30.f * cos(wheelAngle) + PointZero.y) };
 	//PointTwo = { PointThree.x - 30 * sin(laneAngle), PointThree.y - 30 * cos(laneAngle) };
 
 	//Step two, do the math.  Better now, that I found out the pow(a,b) function works by outputting a^b
@@ -86,6 +86,6 @@ double bezier_calc(double progressPoint, double wheelAngle, cv::Point &PointZero
 double set_steering_module(double wheelAngle)
 {
 	using namespace std::chrono_literals;
-	std::this_thread::sleep_for(10ms);
+	std::this_thread::sleep_for(1ms);
 	return wheelAngle;
 }
