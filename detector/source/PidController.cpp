@@ -35,8 +35,8 @@ double bezier_calc(float progressPoint, float wheelAngle, cv::Point2f &PointZero
 	{
 		OutputAngle = -(180. - OutputAngle);
 	};
-
-	return OutputAngle;*/ 
+	*/
+	return OutputAngle; 
 }
 
 double set_steering_module(double wheelAngle)
