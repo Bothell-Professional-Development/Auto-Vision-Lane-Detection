@@ -286,11 +286,11 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			//	Scalar(0, 127, 0),
 			//	1,
 			//	8);
-			line(output.outputMat, cv::Point((leftHorizonIntersectionX + rightHorizonIntersectionX) / 2, horizonY),
-				cv::Point(laneCenterX, VERTICAL_REGION_LOWER),
-				cv::Scalar(0, 127, 0),
-				1,
-				8);
+			//line(output.outputMat, cv::Point((leftHorizonIntersectionX + rightHorizonIntersectionX) / 2, horizonY),
+			//	cv::Point(laneCenterX, VERTICAL_REGION_LOWER),
+			//	cv::Scalar(0, 127, 0),
+			//	1,
+			//	8);
 
 			//plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
 			dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
