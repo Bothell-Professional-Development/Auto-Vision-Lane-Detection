@@ -11,7 +11,6 @@
 void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>& process_input, ObjectEvent<OutputContainer>& process_output);
 
 cv::Mat HOGHistogramWithTranspose(const cv::Mat& currentFrame);  //Used for testing. Without transpose is used for training
-void showHistogram(const cv::Mat& histogram);
 std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, cv::Mat &resizedImage, cv::Mat &outputMat, cv::Ptr<cv::ml::SVM> &svm);
 void plotLanePoints(cv::Mat &resizedImage, std::vector<cv::Point> &leftLaneUnfilteredPoints, std::vector<cv::Point> &rightLaneUnfilteredPoints);
 std::vector<float> findBestFittingCurve(std::vector<cv::Point> &lanePoints);

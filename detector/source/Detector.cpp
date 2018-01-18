@@ -395,44 +395,8 @@ cv::Mat HOGHistogramWithTranspose(const cv::Mat& currentFrame)
 
 	//cv::imshow("input", inputM);
 	//cv::waitKey(1);	
-	//showHistogram(hist);
-
+	
 	return hist;
-}
-
-
-void showHistogram(const cv::Mat& histogram)
-{
-	std::stringstream histrogramNameSS;
-	histrogramNameSS << "HOG" << " Histogram";
-	std::string windowLabel = histrogramNameSS.str();
-
-	int maxValue = 0;
-
-	for (int i = 0; i<histogram.rows; i++)
-		if (histogram.at<float>(i, 0) > maxValue) maxValue = histogram.at<float>(i, 0);
-
-	cv::Mat canvas = cv::Mat::zeros(240, 320, CV_8UC1);
-	int newWidth = (canvas.cols / (double)histogram.rows);
-	if (maxValue != 0)
-	{
-		for (int i = 0; i<histogram.rows; i++)
-		{
-			cv::Scalar clr;
-			if (i % 2 == 0) clr = cv::Scalar(255, 255, 255);
-			else clr = cv::Scalar(150, 150, 150);
-
-			cv::Rect newRect;
-			newRect.x = i*newWidth;
-			newRect.y = canvas.rows*(1.0 - histogram.at<float>(i, 0) / maxValue);
-			newRect.width = newWidth;
-			newRect.height = canvas.rows - newRect.y;
-			cv::rectangle(canvas, newRect, clr, CV_FILLED, CV_AA);
-		}
-	}
-
-	cv::imshow(windowLabel, canvas);
-	cv::waitKey(1);
 }
 
 std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, cv::Mat &resizedImage, cv::Mat &outputMat, cv::Ptr<cv::ml::SVM> &svm)
