@@ -45,7 +45,12 @@ include_directories(
 
 add_definitions(-DUNICODE)
 add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SOURCE})
-target_link_libraries(${PROJECT_NAME} common_lib)
+
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} common_lib)
+else()
+    target_link_libraries(${PROJECT_NAME} common_lib pthread)
+endif()
 
 #Link the necessary libraries to our executable
 set(LIBRARIES_DIR ${CMAKE_SOURCE_DIR}/opencv3.3/${TARGET_OS}/libs/)
