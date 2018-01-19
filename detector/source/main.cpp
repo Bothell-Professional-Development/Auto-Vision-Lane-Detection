@@ -76,8 +76,17 @@ private:
 	clock_t m_time;
 };
 
+static bool* gRunning;
+static void KillHandler(int signal)
+{
+	*gRunning = false;
+}
+
 int main()
 {
+	bool running = true;
+	gRunning = &running;
+
 	std::signal(SIGINT, KillHandler);
 
 	clock_t prog_start_time = clock();
@@ -97,7 +106,7 @@ int main()
 
 	//Create and load already trained SVM classifier
 	//Check if file exists
-	
+
 	if (access(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", "").c_str(), 0) != 0)
 	{
 		std::cout << "Left SVM file doesn't exist" << std::endl;
@@ -111,7 +120,7 @@ int main()
 
 	ObjectEvent<InputContainer> detection_input;
 	ObjectEvent<OutputContainer> detection_output;
-	std::thread processingThread(FrameProcessor, std::ref(cfgFile), std::ref(detection_input), std::ref(detection_output));
+	std::thread processingThread(FrameProcessor, std::ref(cfgFile), std::ref(detection_input), std::ref(detection_output), std::ref(running));
 	Fps30Video video{ cap };
 
 	InputContainer input;
@@ -125,7 +134,7 @@ int main()
 	float steerAngleAvg = 0.0;
 	int avgSteps = 0;
 
-	while (gRunning)
+	while (running)
 	{
 		if (video.read(input.frame))
 		{

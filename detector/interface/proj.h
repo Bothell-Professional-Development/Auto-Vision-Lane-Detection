@@ -13,12 +13,6 @@
 
 #define FRAME_SKIP 1
 
-static bool gRunning = true;
-static void KillHandler(int signal)
-{
-	gRunning = false;
-}
-
 template <class T>
 struct ObjectEvent
 {
@@ -27,10 +21,10 @@ public:
 		m_bFlag(false)
 	{}
 
-	inline bool WaitGetReset(T &value)
+	inline bool WaitGetReset(bool& running, T &value)
 	{
 		std::unique_lock< std::mutex > lock(m_mutex);
-		m_condition.wait(lock, [&]()->bool { return m_bFlag || !gRunning; });
+		m_condition.wait(lock, [&]()->bool { return m_bFlag || !running; });
 		value = m_content;
 		m_bFlag = false;
 
@@ -38,10 +32,10 @@ public:
 	}
 
 	template< typename R, typename P >
-	bool WaitGetReset(const std::chrono::duration<R, P>& crRelTime, T &value)
+	inline bool WaitGetReset(bool& running, const std::chrono::duration<R, P>& crRelTime, T &value)
 	{
 		std::unique_lock<std::mutex> lock(m_mutex);
-		if (!m_condition.wait_for(lock, crRelTime, [&]()->bool { return m_bFlag || !gRunning; }))
+		if (!m_condition.wait_for(lock, crRelTime, [&]()->bool { return m_bFlag || !running; }))
 		{
 			return false;
 		}

@@ -56,7 +56,7 @@ const int pointDistanceFromLaneThreshold = 20 * imageResizeFactor;
 
 
 
-void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>& process_input, ObjectEvent<OutputContainer>& process_output)
+void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>& process_input, ObjectEvent<OutputContainer>& process_output, bool &running)
 {
 	using namespace std::chrono_literals;
 
@@ -89,12 +89,11 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 	InputContainer input;
 	OutputContainer output;
 	cv::Mat resizedImage;
-	//while (gRunning && detection_input.WaitGetReset<double, std::milli>(1500ms, input))
-	while (gRunning && process_input.WaitGetReset(input))
+	while (running && process_input.WaitGetReset(running, input))
 	{
-		if (!gRunning)
+		if (!running)
 		{
-			std::cout << "gRunning stopped\n";
+			std::cout << "running stopped\n";
 			break;
 		}
 
