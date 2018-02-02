@@ -29,11 +29,17 @@ const int32_t HORIZONTAL_RESOLUTION = 1920 * imageResizeFactor;
 const int32_t VERTICAL_RESOLUTION = 1080 * imageResizeFactor;
 const int32_t BOX_WIDTH = 30 * imageResizeFactor;
 const int32_t BOX_HEIGHT = 30 * imageResizeFactor;
+//Values for simulator
+const int32_t  VERTICAL_REGION_UPPER = 650 * imageResizeFactor; //600  
+const int32_t  VERTICAL_REGION_LOWER = 900 * imageResizeFactor; //800
+const int32_t  HORIZONTAL_REGION_LEFT = 250 * imageResizeFactor; //600
+const int32_t  HORIZONTAL_REGION_RIGHT = 1650 * imageResizeFactor; //1400
+//Values for real life video
+//const int32_t  VERTICAL_REGION_UPPER = 600 * imageResizeFactor;
+//const int32_t  VERTICAL_REGION_LOWER = 800 * imageResizeFactor;
+//const int32_t  HORIZONTAL_REGION_LEFT = 600 * imageResizeFactor;
+//const int32_t  HORIZONTAL_REGION_RIGHT = 1400 * imageResizeFactor;
 
-const int32_t  VERTICAL_REGION_UPPER = 600 * imageResizeFactor;
-const int32_t  VERTICAL_REGION_LOWER = 800 * imageResizeFactor;
-const int32_t  HORIZONTAL_REGION_LEFT = 600 * imageResizeFactor;
-const int32_t  HORIZONTAL_REGION_RIGHT = 1400 * imageResizeFactor;
 const int32_t  HORIZONTAL_CENTER = 960 * imageResizeFactor;
 const int32_t AVERAGING_WINDOW_SIZE = 30;
 int dynamicCenterOfLanesXval = HORIZONTAL_CENTER;
@@ -41,18 +47,43 @@ std::vector<cv::Point> upperCenterHistoryV, lowerCenterHistoryV;
 std::vector<cv::Point> leftLaneStartHistoryV, leftLaneEndHistoryV;
 std::vector<cv::Point> rightLaneStartHistoryV, rightLaneEndHistoryV;
 
-const cv::Point IDEAL_LEFT_LANE_MARKER_START = cv::Point(720 * imageResizeFactor, VERTICAL_REGION_LOWER);
-const cv::Point IDEAL_LEFT_LANE_MARKER_END = cv::Point(995 * imageResizeFactor, VERTICAL_REGION_UPPER);
-const cv::Point IDEAL_RIGHT_LANE_MARKER_START = cv::Point(1280 * imageResizeFactor, VERTICAL_REGION_LOWER);
-const cv::Point IDEAL_RIGHT_LANE_MARKER_END = cv::Point(1005 * imageResizeFactor, VERTICAL_REGION_UPPER);
+//These values should be calibrated to match the bes expected lane position on each video (camera position, height of car etc)
+//Values for simulator
+const int IDEAL_LEFT_LANE_MARKER_START_OFFSET = 440; //300;  // Left Yellow line starting offset to the left from lower center of lanes
+const int IDEAL_LEFT_LANE_MARKER_END_OFFSET = 180; //40;     // ends offset to the right of upper center of lanes.
+const int IDEAL_RIGHT_LANE_MARKER_START_OFFSET = 440; //340; // Right Yellow line starting offset to right from lower center of lanes
+const int IDEAL_RIGHT_LANE_MARKER_END_OFFSET = 240; //20;    // ends offset to the right of upper center of lanes.
+const int ADJACENT_LEFT_LANE_MARKER_START_OFFSET = 350;       // Left Teal line, starts offset below upper left corner
+const int ADJACENT_LEFT_LANE_MARKER_END_OFFSET = 280; //80;  // ends offset to the left of upper center of lanes.
+const int ADJACENT_RIGHT_LANE_MARKER_START_OFFSET = 450;      // Right Teal line, starts offset below upper right corner
+const int ADJACENT_RIGHT_LANE_MARKER_END_OFFSET = 280; //40; // ends offset to the right of upper center of lanes.
+//Values for real life video
+//const int IDEAL_LEFT_LANE_MARKER_START_OFFSET = 300;  // Left Yellow line starting offset to the left from lower center of lanes
+//const int IDEAL_LEFT_LANE_MARKER_END_OFFSET = 40;     // ends offset to the right of upper center of lanes.
+//const int IDEAL_RIGHT_LANE_MARKER_START_OFFSET = 340; // Right Yellow line starting offset to right from lower center of lanes
+//const int IDEAL_RIGHT_LANE_MARKER_END_OFFSET = 20;    // ends offset to the right of upper center of lanes.
+//const int ADJACENT_LEFT_LANE_MARKER_START_OFFSET = 100;       // Left Teal line, starts offset below upper left corner
+//const int ADJACENT_LEFT_LANE_MARKER_END_OFFSET = 80;  // ends offset to the left of upper center of lanes.
+//const int ADJACENT_RIGHT_LANE_MARKER_START_OFFSET = 100;      // Right Teal line, starts offset below upper right corner
+//const int ADJACENT_RIGHT_LANE_MARKER_END_OFFSET = 40; // ends offset to the right of upper center of lanes.
 
-const cv::Point ADJACENT_LEFT_LANE_MARKER_START = cv::Point(HORIZONTAL_REGION_LEFT, 718 * imageResizeFactor);
-const cv::Point ADJACENT_LEFT_LANE_MARKER_END = cv::Point(985 * imageResizeFactor, VERTICAL_REGION_UPPER);
-const cv::Point ADJACENT_RIGHT_LANE_MARKER_START = cv::Point(HORIZONTAL_REGION_RIGHT, 718 * imageResizeFactor);
-const cv::Point ADJACENT_RIGHT_LANE_MARKER_END = cv::Point(1015 * imageResizeFactor, VERTICAL_REGION_UPPER);
 
+
+cv::Point IDEAL_LEFT_LANE_MARKER_START;
+cv::Point IDEAL_LEFT_LANE_MARKER_END;
+cv::Point IDEAL_RIGHT_LANE_MARKER_START;
+cv::Point IDEAL_RIGHT_LANE_MARKER_END;
+
+cv::Point ADJACENT_LEFT_LANE_MARKER_START;
+cv::Point ADJACENT_LEFT_LANE_MARKER_END;
+cv::Point ADJACENT_RIGHT_LANE_MARKER_START;
+cv::Point ADJACENT_RIGHT_LANE_MARKER_END;
+
+//Redundant while we're using the IDEAL_ _LANE_MARKERs
 const int pointDistanceFromLaneThreshold = 20 * imageResizeFactor;
 
+std::ofstream outFileLeft;
+std::ofstream outFileRight;
 
 
 
@@ -89,6 +120,10 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 	InputContainer input;
 	OutputContainer output;
 	cv::Mat resizedImage;
+	outFileLeft.open("laneAnglesLeft.csv");
+	outFileRight.open("laneAnglesRight.csv");
+
+
 	//while (gRunning && detection_input.WaitGetReset<double, std::milli>(1500ms, input))
 	while (gRunning && process_input.WaitGetReset(input))
 	{
@@ -102,12 +137,25 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 		newTime = clock();
 		output.frameCounter++;
 
-		if (output.frameCounter % FRAME_SKIP == 0)
+		if (output.frameCounter % FRAME_SKIP == 0 /*&& output.frameCounter > 120*/)
 		{
-			output.timePF = (newTime - oldTime) / (CLOCKS_PER_SEC / 1000);
+			IDEAL_LEFT_LANE_MARKER_START = cv::Point(dynamicCenterOfLanesXval - IDEAL_LEFT_LANE_MARKER_START_OFFSET * imageResizeFactor, VERTICAL_REGION_LOWER); //720
+			IDEAL_LEFT_LANE_MARKER_END = cv::Point(dynamicCenterOfLanesXval - IDEAL_LEFT_LANE_MARKER_END_OFFSET * imageResizeFactor, VERTICAL_REGION_UPPER); //995
+			IDEAL_RIGHT_LANE_MARKER_START = cv::Point(dynamicCenterOfLanesXval + IDEAL_RIGHT_LANE_MARKER_START_OFFSET * imageResizeFactor, VERTICAL_REGION_LOWER); //1280
+			IDEAL_RIGHT_LANE_MARKER_END = cv::Point(dynamicCenterOfLanesXval + IDEAL_RIGHT_LANE_MARKER_END_OFFSET * imageResizeFactor, VERTICAL_REGION_UPPER); //1005
+
+			ADJACENT_LEFT_LANE_MARKER_START = cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER + ADJACENT_LEFT_LANE_MARKER_START_OFFSET * imageResizeFactor); //718
+			ADJACENT_LEFT_LANE_MARKER_END = cv::Point(dynamicCenterOfLanesXval - ADJACENT_LEFT_LANE_MARKER_END_OFFSET * imageResizeFactor, VERTICAL_REGION_UPPER); //985
+			ADJACENT_RIGHT_LANE_MARKER_START = cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER + ADJACENT_RIGHT_LANE_MARKER_START_OFFSET * imageResizeFactor);
+			ADJACENT_RIGHT_LANE_MARKER_END = cv::Point(dynamicCenterOfLanesXval + ADJACENT_RIGHT_LANE_MARKER_END_OFFSET * imageResizeFactor, VERTICAL_REGION_UPPER); //1015
+
+			//line(output.outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, output.outputMat.rows - 1), cv::Scalar(200, 100, 0), 1, 8, 0);
+			output.timePF = (newTime - oldTime) / (CLOCKS_PER_SEC / 1000); 
 			oldTime = newTime;
+			//Simulator
+			//input.frame = cv::imread("d:/testVirtualLane.png", CV_LOAD_IMAGE_COLOR);
 			resize(input.frame, resizedImage, cv::Size(HORIZONTAL_RESOLUTION, VERTICAL_RESOLUTION));
-			//resizedImage = frame.clone(); //First try with full resolution
+			
 			cvtColor(resizedImage, resizedImage, CV_BGR2GRAY);
 			resizedImage.convertTo(resizedImage, CV_32FC1); //Grayscale
 			resizedImage /= 255;
@@ -116,27 +164,21 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			resizedImage.convertTo(output.outputMat, CV_32FC3);
 			cvtColor(output.outputMat, output.outputMat, CV_GRAY2BGR);
 
-			// TESTING: Mark the Region Of Interest ROI
-			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Scalar(0, 255, 0), 2, 8, 0);
-			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
-			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
-			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 2, 8, 0);
+			// TESTING: Mark the Region Of Interest ROI (Green rectangle)
+			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Scalar(0, 255, 0), 1, 8, 0);
+			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 1, 8, 0);
+			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 1, 8, 0);
+			cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 1, 8, 0);
 			//imshow("ROI", resizedImage);
 			//waitKey(0);
-
 
 			leftLaneUnfilteredPoints = getSVMPrediction(HORIZONTAL_REGION_LEFT, dynamicCenterOfLanesXval, resizedImage, output.outputMat, svmLeft);
 			rightLaneUnfilteredPoints = getSVMPrediction(dynamicCenterOfLanesXval, HORIZONTAL_REGION_RIGHT, resizedImage, output.outputMat, svmRight);
 			output.totalPointsFound += leftLaneUnfilteredPoints.size() + rightLaneUnfilteredPoints.size();
-
+			
 			//Find a crude line first
 			if (leftLaneUnfilteredPoints.size() > 2)
 			{
-				/*leftLaneLine = findBestFittingCurve(leftLaneUnfilteredPoints);
-				leftLaneStartPoint = Point(leftLaneLine[2] - leftLaneLine[0] * twoWayProjectionDistanceForLine, leftLaneLine[3] - leftLaneLine[1] * twoWayProjectionDistanceForLine);
-				leftLaneEndPoint = Point(leftLaneLine[2] + leftLaneLine[0] * twoWayProjectionDistanceForLine, leftLaneLine[3] + leftLaneLine[1] * twoWayProjectionDistanceForLine);
-				//Filter out the outliers
-				leftLaneFilteredPoints = filterLanePoints(leftLaneUnfilteredPoints, leftLaneStartPoint, leftLaneEndPoint);*/
 				//test new filter
 				leftLaneFilteredPoints = filterLanePoints(leftLaneUnfilteredPoints,
 					IDEAL_LEFT_LANE_MARKER_START,
@@ -154,11 +196,6 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 
 			if (rightLaneUnfilteredPoints.size() > 2)
 			{
-				/*rightLaneLine = findBestFittingCurve(rightLaneUnfilteredPoints);
-				rightLaneStartPoint = Point(rightLaneLine[2] - rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] - rightLaneLine[1] * twoWayProjectionDistanceForLine);
-				rightLaneEndPoint = Point(rightLaneLine[2] + rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] + rightLaneLine[1] * twoWayProjectionDistanceForLine);
-				//Filter out the outliers
-				rightLaneFilteredPoints = filterLanePoints(rightLaneUnfilteredPoints, rightLaneStartPoint, rightLaneEndPoint);*/
 				rightLaneFilteredPoints = filterLanePoints(rightLaneUnfilteredPoints,
 					IDEAL_RIGHT_LANE_MARKER_START,
 					IDEAL_RIGHT_LANE_MARKER_END,
@@ -168,27 +205,37 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 				if (rightLaneFilteredPoints.size() > 2)
 				{
 					rightLaneLine = findBestFittingCurve(rightLaneFilteredPoints);
-					rightLaneStartPoint = cv::Point(rightLaneLine[2] - rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] - rightLaneLine[1] * twoWayProjectionDistanceForLine);
-					rightLaneEndPoint = cv::Point(rightLaneLine[2] + rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] + rightLaneLine[1] * twoWayProjectionDistanceForLine);
+					rightLaneEndPoint = cv::Point(rightLaneLine[2] - rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] - rightLaneLine[1] * twoWayProjectionDistanceForLine);
+					rightLaneStartPoint = cv::Point(rightLaneLine[2] + rightLaneLine[0] * twoWayProjectionDistanceForLine, rightLaneLine[3] + rightLaneLine[1] * twoWayProjectionDistanceForLine);
 				}
 			}
 
+			//plotLanePoints2(output.outputMat, leftLaneUnfilteredPoints, rightLaneUnfilteredPoints);
+			plotLanePoints(output.outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
 			//Get the average of the lane points from the last frames
-			leftLaneStartHistoryV.push_back(leftLaneStartPoint);
-			leftLaneEndHistoryV.push_back(leftLaneEndPoint);
-			rightLaneStartHistoryV.push_back(rightLaneStartPoint);
-			rightLaneEndHistoryV.push_back(rightLaneEndPoint);
+			///test. placing it here
+			cv::circle(output.outputMat, leftLaneStartPoint, 3, cv::Scalar(100, 0, 30), 2, 8, 0);
+			cv::circle(output.outputMat, leftLaneEndPoint, 5, cv::Scalar(100, 0, 30), 1, 8, 0);
+			cv::circle(output.outputMat, rightLaneStartPoint, 3, cv::Scalar(0, 20, 130), 2, 8, 0);
+			cv::circle(output.outputMat, rightLaneEndPoint, 5, cv::Scalar(0, 20, 130), 1, 8, 0);
+			filterLanesBeforeInsertingInHistory(leftLaneStartPoint, leftLaneEndPoint, leftLaneStartHistoryV, leftLaneEndHistoryV, true);
+			filterLanesBeforeInsertingInHistory(rightLaneStartPoint, rightLaneEndPoint, rightLaneStartHistoryV, rightLaneEndHistoryV, false);
+			std::cout << std::endl;
+
 			leftLaneStartPoint = getPointVectorAverage(leftLaneStartHistoryV);
 			leftLaneEndPoint = getPointVectorAverage(leftLaneEndHistoryV);
 			rightLaneStartPoint = getPointVectorAverage(rightLaneStartHistoryV);
 			rightLaneEndPoint = getPointVectorAverage(rightLaneEndHistoryV);
-			line(output.outputMat, leftLaneStartPoint, leftLaneEndPoint, cv::Scalar(0, 0, 1), 2, 8);
-			line(output.outputMat, rightLaneStartPoint, rightLaneEndPoint, cv::Scalar(1, 0, 0), 2, 8);
+
+
+
+			line(output.outputMat, leftLaneStartPoint, leftLaneEndPoint, cv::Scalar(0, 0, 1), 1, 8);
+			line(output.outputMat, rightLaneStartPoint, rightLaneEndPoint, cv::Scalar(1, 0, 0), 1, 8);
 			//debug - approximate idealized lane margins
 			line(output.outputMat, IDEAL_LEFT_LANE_MARKER_START, IDEAL_LEFT_LANE_MARKER_END, cv::Scalar(0, 127, 127), 1, 8);
 			line(output.outputMat, IDEAL_RIGHT_LANE_MARKER_START, IDEAL_RIGHT_LANE_MARKER_END, cv::Scalar(0, 127, 127), 1, 8);
-			line(output.outputMat, ADJACENT_LEFT_LANE_MARKER_START, ADJACENT_LEFT_LANE_MARKER_END, cv::Scalar(0, 127, 127), 1, 8);
-			line(output.outputMat, ADJACENT_RIGHT_LANE_MARKER_START, ADJACENT_RIGHT_LANE_MARKER_END, cv::Scalar(0, 127, 127), 1, 8);
+			line(output.outputMat, ADJACENT_LEFT_LANE_MARKER_START, ADJACENT_LEFT_LANE_MARKER_END, cv::Scalar(127, 127, 0), 1, 8);
+			line(output.outputMat, ADJACENT_RIGHT_LANE_MARKER_START, ADJACENT_RIGHT_LANE_MARKER_END, cv::Scalar(127, 127, 0), 1, 8);
 
 			//debug - predicted lane center
 			int laneCenterX = HORIZONTAL_CENTER;
@@ -279,28 +326,12 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 
 			putText(output.outputMat, str.str(), cvPoint(HORIZONTAL_CENTER, VERTICAL_REGION_LOWER + 20),
 				cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200, 200, 250), 1, CV_AA);
-
-
-			//line(outputMat, cv::Point((IDEAL_LEFT_LANE_MARKER_START.x + IDEAL_RIGHT_LANE_MARKER_START.x) / 2, VERTICAL_REGION_UPPER),
-			//	cv::Point(laneCenterX, VERTICAL_REGION_LOWER),
-			//	Scalar(0, 127, 0),
-			//	1,
-			//	8);
-			//line(output.outputMat, cv::Point((leftHorizonIntersectionX + rightHorizonIntersectionX) / 2, horizonY),
-			//	cv::Point(laneCenterX, VERTICAL_REGION_LOWER),
-			//	cv::Scalar(0, 127, 0),
-			//	1,
-			//	8);
-
-			//plotLanePoints(outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
+			
 			dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
 			output.BezPointThree = getPointVectorAverage(upperCenterHistoryV);
 			output.BezPointTwo = getPointVectorAverage(lowerCenterHistoryV);
-			circle(output.outputMat, output.BezPointThree, 5, cv::Scalar(124, 200, 10), 2, 8, 0);
-			circle(output.outputMat, output.BezPointTwo, 5, cv::Scalar(124, 200, 10), 2, 8, 0);
-			//line(outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, VERTICAL_REGION_LOWER),Scalar(0, 0, 1.0), 2, 8, 0);
-			//outputMat *= 255;
-			//outputMat.convertTo(outputMat, CV_8UC3); 
+			circle(output.outputMat, output.BezPointThree, 3, cv::Scalar(124, 200, 10), 2, 8, 0);
+			circle(output.outputMat, output.BezPointTwo, 3, cv::Scalar(124, 200, 10), 2, 8, 0);
 
 			//PID Controller visualization:
 			output.BezPointZero = { (float)HORIZONTAL_RESOLUTION / 2.f, (float)VERTICAL_RESOLUTION };
@@ -353,10 +384,6 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 
 cv::Mat HOGHistogramWithTranspose(const cv::Mat& currentFrame)
 {
-	//Mat newFrame;
-	//currentFrame.convertTo(newFrame, CV_32FC1);
-	//newFrame /= 255;
-
 	cv::Mat inputM = cv::Mat::zeros(currentFrame.size(), currentFrame.type());
 	int i, j, k, l;
 
@@ -408,20 +435,26 @@ std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, 
 	cv::Point centerOfLaneBox;
 	int cornerOffset = ceil((float)(VERTICAL_REGION_LOWER - VERTICAL_REGION_UPPER) / BOX_HEIGHT);
 	int leftCornerOffset, rightCornerOffset;
+	int color2forSVNBox, color3forSVNBox;
 	if (horizontalEnd == dynamicCenterOfLanesXval) //We want to cut the upper left corner
 	{
 		leftCornerOffset = 1;
 		rightCornerOffset = 0;
+		color2forSVNBox = 0;
+		color3forSVNBox = 255;
 	}
 	else //We want to cut the upper right corner
 	{
 		rightCornerOffset = -1;
 		leftCornerOffset = 0;
+		color2forSVNBox = 255;
+		color3forSVNBox = 0;
 	}
 
+	int cnt = 0;
 	for (int r = VERTICAL_REGION_UPPER; r < VERTICAL_REGION_LOWER; r += BOX_HEIGHT, cornerOffset--)
 	{
-		for (int c = horizontalStart + cornerOffset*leftCornerOffset*BOX_WIDTH; c < horizontalEnd + cornerOffset*rightCornerOffset*BOX_WIDTH; c += BOX_WIDTH)
+		for (int c = horizontalStart + cornerOffset*leftCornerOffset*BOX_WIDTH - rightCornerOffset*BOX_WIDTH/2.0; c < horizontalEnd + cornerOffset*rightCornerOffset*BOX_WIDTH - leftCornerOffset*BOX_HEIGHT/2.0; c += BOX_WIDTH)
 		{
 			{
 				sampleBox = cv::Mat(resizedImage, cv::Range(r, r + BOX_HEIGHT), cv::Range(c, c + BOX_WIDTH));
@@ -429,37 +462,35 @@ std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, 
 				histogramOfFeature = HOGHistogramWithTranspose(sampleBox);
 				responseSVM = svm->predict(histogramOfFeature);
 
-				//if (responseSVM == 1)
-				//{
-				//	//Mark the cell with a red border
-				//	cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
-				//}
-				//if (responseSVM == -1)
-				//{
-				//	//Mark the cell with a red border
-				//	cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(255, 0, 0), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(255, 0, 0), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(255, 0, 0), 1, 8, 0);
-				//	cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(255, 0, 0), 1, 8, 0);
-				//}
+				if (responseSVM == 1)
+				{
+					//Mark the cell with a red border
+					cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
+				}
+				if (responseSVM == -1)
+				{
+					//Mark the cell with a red border
+					cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(color2forSVNBox, color3forSVNBox, 0), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Scalar(color2forSVNBox, color3forSVNBox, 0), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(color2forSVNBox, color3forSVNBox, 0), 1, 8, 0);
+					cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(color2forSVNBox, color3forSVNBox, 0), 1, 8, 0);
+				}
 
 				if (responseSVM == 1)
 				{
 					//Find centroid of brighter part of image
 					centerOfLaneBox = findCentroidOfLaneArea(r, c, sampleBox);
-					//centerOfLaneBox = Point(c + BOX_WIDTH / 2, r + BOX_HEIGHT / 2);
 					unfilteredLanePoints.push_back(centerOfLaneBox);
-
+					cnt++;
 				}
 				//imshow("test", outputMat);
-				//waitKey(1);
+				//cv::waitKey(1);
 			}
 		}
 	}
-
 	return unfilteredLanePoints;
 }
 
@@ -473,6 +504,19 @@ void plotLanePoints(cv::Mat &resizedImage, std::vector<cv::Point> &leftLaneUnfil
 	for (int i = 0; i < rightLaneUnfilteredPoints.size(); i++)
 	{
 		circle(resizedImage, rightLaneUnfilteredPoints[i], 3, cv::Scalar(1.0, 0, 0), 2, 8, 0);
+	}
+}
+
+void plotLanePoints2(cv::Mat &resizedImage, std::vector<cv::Point> &leftLaneUnfilteredPoints, std::vector<cv::Point> &rightLaneUnfilteredPoints)
+{
+	for (int i = 0; i < leftLaneUnfilteredPoints.size(); i++)
+	{
+		circle(resizedImage, leftLaneUnfilteredPoints[i], 2, cv::Scalar(0, 0, 1.0), 1, 8, 0);
+	}
+
+	for (int i = 0; i < rightLaneUnfilteredPoints.size(); i++)
+	{
+		circle(resizedImage, rightLaneUnfilteredPoints[i], 2, cv::Scalar(1.0, 0, 0), 1, 8, 0);
 	}
 }
 
@@ -532,7 +576,7 @@ const std::vector<cv::Point> filterLanePoints(const std::vector<cv::Point>& unfi
 
 	for (int i = 0; i < closeToNearLinePoints.size(); ++i)
 	{
-		if (distancesToNearLine[i] < avgDistToNear * 1.05)
+		if (distancesToNearLine[i] < avgDistToNear * 1.5)
 		{
 			filteredPoints.push_back(closeToNearLinePoints[i]);
 		}
@@ -562,7 +606,6 @@ cv::Point findCentroidOfLaneArea(int rowStart, int columnStart, cv::Mat &sampleB
 	double otsu = 100;
 	cv::Mat otsuMask(sampleBox.size(), sampleBox.type());
 	threshold(sampleBox, otsuMask, otsu, 255, cv::THRESH_OTSU);
-	//adaptiveThreshold(sampleBox, otsuMask, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 15, 5);
 
 	//Find contours of lane
 	std::vector<cv::Vec4i> hierarchy;
@@ -580,17 +623,18 @@ cv::Point findCentroidOfLaneArea(int rowStart, int columnStart, cv::Mat &sampleB
 		}
 	}
 
-	////Draw the largest contour
-	//otsuMask *= 0;
-	//std::vector < std::vector<cv::Point>> finalBlob;
-	//finalBlob.push_back(contoursV[largestContourIndex]);
-	//cv::drawContours(otsuMask, finalBlob, -1, Scalar(255), CV_FILLED, 8);
-	//imshow("after", otsuMask);
-	//waitKey(0);
-
-	//Find the centroid of the largest contour
+	//Find the centroid of the largest contour or return the center of the box if centroid not found
 	cv::Moments mu = moments(contoursV[largestContourIndex], false);
-	return cv::Point((int)(mu.m10 / mu.m00) + columnStart, (int)(mu.m01 / mu.m00) + rowStart);
+	cv::Point centroidPoint = cv::Point((int)(mu.m10 / mu.m00), (int)(mu.m01 / mu.m00));
+	if (centroidPoint.x < 0 || centroidPoint.x >= sampleBox.cols || centroidPoint.y < 0 || centroidPoint.y > sampleBox.cols) {
+		centroidPoint = cv::Point((int)(sampleBox.cols / 2.0 + columnStart), (int)sampleBox.rows / 2.0 + rowStart);
+	}
+	else
+	{
+		centroidPoint.x += columnStart;
+		centroidPoint.y += rowStart;
+	}
+	return centroidPoint;
 }
 
 bool findLineLineIntersection(const int32_t& x0, const int32_t& y0,
@@ -727,5 +771,28 @@ cv::Point getPointVectorAverage(std::vector<cv::Point> &pointV)
 	else
 	{
 		return pointV[pointV.size() - 1];
+	}
+}
+
+void filterLanesBeforeInsertingInHistory(cv::Point &startPoint, cv::Point &endPoint, std::vector<cv::Point> &startHistoryV, std::vector<cv::Point> &endHistoryV, bool isLeft) 
+{
+	double angle = atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
+	angle = angle * 180 / CV_PI;
+	std::cout << angle << "   ";
+	if (isLeft)
+	{
+		if (angle >= -90 && angle < -34)
+		{
+			leftLaneStartHistoryV.push_back(startPoint);
+			leftLaneEndHistoryV.push_back(endPoint);
+		}
+	}
+	else
+	{
+		if (angle <= -90 && angle > -155)
+		{
+			rightLaneStartHistoryV.push_back(startPoint);
+			rightLaneEndHistoryV.push_back(endPoint);
+		}
 	}
 }
