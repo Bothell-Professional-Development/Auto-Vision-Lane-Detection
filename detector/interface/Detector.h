@@ -15,7 +15,6 @@ std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, 
 void plotLanePoints(cv::Mat &resizedImage, std::vector<cv::Point> &leftLaneUnfilteredPoints, std::vector<cv::Point> &rightLaneUnfilteredPoints);
 void plotLanePoints2(cv::Mat &resizedImage, std::vector<cv::Point> &leftLaneUnfilteredPoints, std::vector<cv::Point> &rightLaneUnfilteredPoints);
 std::vector<float> findBestFittingCurve(std::vector<cv::Point> &lanePoints);
-std::vector<cv::Point> filterLanePoints(std::vector<cv::Point> &unfilteredPoints, cv::Point line_start, cv::Point line_end);
 const std::vector<cv::Point> filterLanePoints(const std::vector<cv::Point>& unfilteredPoints,
 	const cv::Point nearLineStart,
 	const cv::Point nearLineEnd,
