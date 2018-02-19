@@ -7,37 +7,35 @@
 #include <opencv2/imgproc.hpp>
 #include "proj.h"
 
-double bezier_calc(float progressPoint, float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointOne, cv::Point2f &PointTwo, cv::Point2f &PointThree)
+double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointOne, cv::Point2f &PointTwo, cv::Point2f &PointThree, double OutputArray[steerCommandArraySize])
 {
 	//deatils: en.wikipedia.org/wiki/B%C3%A9zier_curve
-	//Check incoming values which need to be restricted for the math to work.
-	if (progressPoint > 1.)
-	{
-		progressPoint = 1.;
-	}
-	
-	if (progressPoint < 0.)
-	{
-		progressPoint = 0.;
-	}
-	//Anything out of bounds gets snapped to closest in bounds.  This should handle things as nicely as possible.
 	cv::Point2f Result = { 0, 0 };
 	//We're given 3 of the 4 points we need to do our calculations, so this last portion here is what we need to do to speculate on the final point.
-	PointOne = { (100.f * sin(wheelAngle) + PointZero.x), (100.f * cos(wheelAngle) + PointZero.y) };
-	//Step two, do the math.  Better now, that I found out the pow(a,b) function works by outputting a^b
-	//This algorithm now uses the tangent of the smoothest curve path to the center line at the given progress point through the curve.
-	Result = (3. * pow(1. - progressPoint, 2.) * (PointOne - PointZero))
-		   + (6. * (1. - progressPoint)*progressPoint * (PointTwo - PointOne))
-		   + (3. * pow(progressPoint, 2.)*(PointThree - PointTwo));
-	//Step three, do the monster math (use the resultant location to calculate an angle to which the wheels should steer)
-	double OutputAngle = (90. - atan(Result.y / (Result.x - PointZero.x + 1)));
-	//The following might be needed to properly convert to the intended steering angle, but that all depends on how the coordinate system works, and what angle we want to pick as "wheels pointing forward"
-	/*if (OutputAngle >= 90.)
+	PointOne = { (BezierMagnitude * sin(wheelAngle) + PointZero.x), (BezierMagnitude * cos(wheelAngle) + PointZero.y) };
+	//Properly scaling the magnitute of the point two, so it doesn't completely depend on the box height
+	PointTwo = { BezierMagnitude * sin(atan((PointTwo.x - PointThree.x) / (PointTwo.y - PointThree.y))) , BezierMagnitude * cos(atan((PointTwo.x - PointThree.x) / (PointTwo.y - PointThree.y))) };
+	//setup the array to hold our results
+	for (double n = 0; n < steerCommandArraySize; n++) //important!  n NEEDS to be a double for the math to behave properly.
 	{
-		OutputAngle = -(180. - OutputAngle);
-	};
-	*/
-	return OutputAngle; 
+		//Step two, do the math.  Better now, that I found out the pow(a,b) function works by outputting a^b
+		//This algorithm now uses the tangent of the smoothest curve path to the center line at the given progress point through the curve.
+		Result = (3. * pow(1. - (n/ steerCommandArraySize), 2.) * (PointOne - PointZero))
+			+ (6. * (1. - (n / steerCommandArraySize))*(n / steerCommandArraySize) * (PointTwo - PointOne))
+			+ (3. * pow((n / steerCommandArraySize), 2.)*(PointThree - PointTwo));
+		//Step three, do the monster math (use the resultant location to calculate an angle to which the wheels should steer)
+		double OutputAngle = (90. - atan(Result.y / (Result.x - PointZero.x + 1)));
+		//The following might be needed to properly convert to the intended steering angle, but that all depends on how the coordinate system works, and what angle we want to pick as "wheels pointing forward"
+		/*if (OutputAngle >= 90.)
+		{
+			OutputAngle = -(180. - OutputAngle);
+		};
+		*/
+		//Add the result to the array
+		OutputArray[int(n)] = OutputAngle;
+	}
+	//pass back the array!
+	return OutputArray[0]; 
 }
 
 double set_steering_module(double wheelAngle)

@@ -124,6 +124,7 @@ int main()
 	double steerAngle = 0.0;
 	float steerAngleAvg = 0.0;
 	int avgSteps = 0;
+	double OutputArray[steerCommandArraySize];
 
 	while (gRunning)
 	{
@@ -167,8 +168,7 @@ int main()
 		}
 
 		steerAngle = set_steering_module(steerAngle);
-		steerAngle = bezier_calc(curveProgress / curveProgressMax, steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree);
-		curveProgress = (curveProgress + 1);
+		steerAngle = bezier_calc(steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
 		steerAngleAvg += (float)steerAngle;
 	}
 

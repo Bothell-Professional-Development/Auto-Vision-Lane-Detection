@@ -12,6 +12,7 @@
 #include <cmath>
 
 #define FRAME_SKIP 1
+#define steerCommandArraySize 10
 
 static bool gRunning = true;
 static void KillHandler(int signal)
@@ -120,3 +121,6 @@ struct OutputContainer
 	cv::Point2f BezPointTwo;
 	cv::Point2f BezPointThree;
 };
+
+
+
