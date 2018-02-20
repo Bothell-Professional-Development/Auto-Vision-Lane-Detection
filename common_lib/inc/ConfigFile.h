@@ -11,8 +11,8 @@ class ConfigFile
 public:
 	enum class ConfigStatus
 	{
-		SUCCESS,
-		ERROR
+		CONFIG_SUCCESS,
+		CONFIG_ERROR
 	};
 
 public:

@@ -23,10 +23,10 @@ ConfigFile::ConfigStatus ConfigFile::pullValuesFromFile(const std::string & file
 			}
 		}
 
-		return ConfigFile::ConfigStatus::SUCCESS;
+		return ConfigFile::ConfigStatus::CONFIG_SUCCESS;
 	}
 
-	return ConfigFile::ConfigStatus::ERROR;
+	return ConfigFile::ConfigStatus::CONFIG_ERROR;
 }
 
 ConfigFile::ConfigStatus ConfigFile::pushValuesToFile(const std::string & filePath)
@@ -40,10 +40,10 @@ ConfigFile::ConfigStatus ConfigFile::pushValuesToFile(const std::string & filePa
 			file << it->first << delimiter << it->second << "\n";
 		}
 
-		return ConfigFile::ConfigStatus::SUCCESS;
+		return ConfigFile::ConfigStatus::CONFIG_SUCCESS;
 	}
 
-	return ConfigFile::ConfigStatus::ERROR;
+	return ConfigFile::ConfigStatus::CONFIG_ERROR;
 }
 
 std::string ConfigFile::readValueOrDefault(const std::string& key, const std::string& defaultvalue) const

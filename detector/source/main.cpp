@@ -35,7 +35,7 @@
 #endif
 
 #ifdef LIBBuild
-#include "afx.h"
+#include "main.h"
 #endif
 
 
@@ -88,57 +88,53 @@ static void KillHandler(int signal)
 }
 
 #ifdef LIBBuild
-class __declspec(dllexport) CExampleExport : public CObject
+unsigned int CExampleExport::Initialize()
 {
-	bool running = false;
-	double steerAngle = 0.0;
-	common_lib::ConfigFile cfgFile;
-	ObjectEvent<InputContainer> detection_input;
-	ObjectEvent<OutputContainer> detection_output;
+	running = true;
 
-public:
-	unsigned int Initialize()
+	gRunning = &running;
+	cfgFile.pullValuesFromFile(CFG_FILE_PATH);
+
+	//Create and load already trained SVM classifier
+	//Check if file exists
+	if (access(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", "").c_str(), 0) != 0)
 	{
-		running = true;
-
-		gRunning = &running;
-		cfgFile.pullValuesFromFile(CFG_FILE_PATH);
-
-		//Create and load already trained SVM classifier
-		//Check if file exists
-		if (access(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", "").c_str(), 0) != 0)
-		{
-			std::cout << "Left SVM file doesn't exist" << std::endl;
-			return 1;
-		}
-
-		if (access(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", "").c_str(), 0) != 0)
-		{
-			std::cout << "Right SVM file doesn't exist" << std::endl;
-			return 1;
-		}
-
-		std::thread processingThread(FrameProcessor, std::ref(cfgFile), std::ref(detection_input), std::ref(detection_output), std::ref(running));
-		return 0;
+		std::cout << "Left SVM file doesn't exist" << std::endl;
+		return 1;
 	}
 
-	float DetectLanes(unsigned char* bufferCopy, const unsigned int bufferWidth, const unsigned int bufferHeight)
+	if (access(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", "").c_str(), 0) != 0)
 	{
-		InputContainer input;
-		OutputContainer output;
-
-		input.frame = cv::Mat::Mat(bufferHeight, bufferWidth, CV_32FC1, bufferCopy);
-		detection_input.SetAndSignal(input);
-		detection_output.TryGetReset(output);
-		return bezier_calc(0, steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree);
+		std::cout << "Right SVM file doesn't exist" << std::endl;
+		return 1;
 	}
 
-	unsigned int exit()
+	processingThread = std::thread(FrameProcessor, std::ref(cfgFile), std::ref(detection_input), std::ref(detection_output), std::ref(running));
+	return 0;
+}
+
+float CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned int bufferWidth, const unsigned int bufferHeight)
+{
+	InputContainer input;
+	OutputContainer output;
+
+	input.frame = cv::Mat::Mat(bufferHeight, bufferWidth, CV_32FC1, bufferCopy);
+	detection_input.SetAndSignal(input);
+	detection_output.TryGetReset(output);
+	return bezier_calc(0, steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree);
+}
+
+unsigned int CExampleExport::exit()
+{
+	//std::raise(SIGINT);
+	running = false;
+	if (processingThread.joinable())
 	{
-		std::raise(SIGINT);
-		return 0;
+		processingThread.join();
 	}
-};
+
+	return 0;
+}
 #else
 int main()
 {
