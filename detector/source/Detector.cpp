@@ -21,52 +21,43 @@
 #include <string>
 #include <cmath>
 
-bool renderingOutput = true;
 
+bool renderingOutput = false;
 float imageResizeFactor = 1;
-const int32_t HORIZONTAL_RESOLUTION = 800 * imageResizeFactor; //1920
-const int32_t VERTICAL_RESOLUTION = 450 * imageResizeFactor; //1080
-const int32_t BOX_WIDTH = 25 * imageResizeFactor;
-const int32_t BOX_HEIGHT = 25 * imageResizeFactor;
-const int32_t  HORIZONTAL_CENTER = 400 * imageResizeFactor;
-const int32_t AVERAGING_WINDOW_SIZE = 5;
-int dynamicCenterOfLanesXval = HORIZONTAL_CENTER;
 
-//Values for simulator
-const int32_t  VERTICAL_REGION_UPPER = 250 * imageResizeFactor; //600  
-const int32_t  VERTICAL_REGION_LOWER = 420 * imageResizeFactor; //800
-int32_t  HORIZONTAL_REGION_LEFT = 0;
-int32_t  HORIZONTAL_REGION_RIGHT = 0;
+static int HORIZONTAL_RESOLUTION;
+static int VERTICAL_RESOLUTION;
+static int BOX_WIDTH;
+static int BOX_HEIGHT;
+static int HORIZONTAL_CENTER;
+static int AVERAGING_WINDOW_SIZE;
+int dynamicCenterOfLanesXval;
 
-//Values for real life video
-//const int32_t  VERTICAL_REGION_UPPER = 600 * imageResizeFactor;
-//const int32_t  VERTICAL_REGION_LOWER = 800 * imageResizeFactor;
-//const int32_t  HORIZONTAL_REGION_LEFT = 600 * imageResizeFactor;
-//const int32_t  HORIZONTAL_REGION_RIGHT = 1400 * imageResizeFactor;
+static int VERTICAL_REGION_UPPER;
+static int VERTICAL_REGION_LOWER;
+int HORIZONTAL_REGION_LEFT;
+int HORIZONTAL_REGION_RIGHT;
+static int HORIZONTAL_REGION_LEFT_OFFSET;
+static int HORIZONTAL_REGION_RIGHT_OFFSET;
 
 std::vector<cv::Point> upperCenterHistoryV, lowerCenterHistoryV;
 std::vector<cv::Point> leftLaneStartHistoryV, leftLaneEndHistoryV;
 std::vector<cv::Point> rightLaneStartHistoryV, rightLaneEndHistoryV;
 
 //These values should be calibrated to match the bes expected lane position on each video (camera position, height of car etc)
-//Values for simulator
-const int IDEAL_LEFT_LANE_MARKER_START_OFFSET = 210; //300;  // Left Yellow line starting offset to the left from lower center of lanes
-const int IDEAL_LEFT_LANE_MARKER_END_OFFSET = 70; //40;     // ends offset to the right of upper center of lanes.
-const int IDEAL_RIGHT_LANE_MARKER_START_OFFSET = 200; //340; // Right Yellow line starting offset to right from lower center of lanes
-const int IDEAL_RIGHT_LANE_MARKER_END_OFFSET = 70; //20;    // ends offset to the right of upper center of lanes.
-const int ADJACENT_LEFT_LANE_MARKER_START_OFFSET = 100;       // Left Teal line, starts offset below upper left corner
-const int ADJACENT_LEFT_LANE_MARKER_END_OFFSET = 200; //80;  // ends offset to the left of upper center of lanes.
-const int ADJACENT_RIGHT_LANE_MARKER_START_OFFSET = 100;      // Right Teal line, starts offset below upper right corner
-const int ADJACENT_RIGHT_LANE_MARKER_END_OFFSET = 200; //40; // ends offset to the right of upper center of lanes.
-//Values for real life video
-//const int IDEAL_LEFT_LANE_MARKER_START_OFFSET = 300;  // Left Yellow line starting offset to the left from lower center of lanes
-//const int IDEAL_LEFT_LANE_MARKER_END_OFFSET = 40;     // ends offset to the right of upper center of lanes.
-//const int IDEAL_RIGHT_LANE_MARKER_START_OFFSET = 340; // Right Yellow line starting offset to right from lower center of lanes
-//const int IDEAL_RIGHT_LANE_MARKER_END_OFFSET = 20;    // ends offset to the right of upper center of lanes.
-//const int ADJACENT_LEFT_LANE_MARKER_START_OFFSET = 100;       // Left Teal line, starts offset below upper left corner
-//const int ADJACENT_LEFT_LANE_MARKER_END_OFFSET = 80;  // ends offset to the left of upper center of lanes.
-//const int ADJACENT_RIGHT_LANE_MARKER_START_OFFSET = 100;      // Right Teal line, starts offset below upper right corner
-//const int ADJACENT_RIGHT_LANE_MARKER_END_OFFSET = 40; // ends offset to the right of upper center of lanes.
+static int IDEAL_LEFT_LANE_MARKER_START_OFFSET;  // Left Yellow line starting offset to the left from lower center of lanes
+static int IDEAL_LEFT_LANE_MARKER_END_OFFSET;    // ends offset to the right of upper center of lanes.
+static int IDEAL_RIGHT_LANE_MARKER_START_OFFSET; // Right Yellow line starting offset to right from lower center of lanes
+static int IDEAL_RIGHT_LANE_MARKER_END_OFFSET;    // ends offset to the right of upper center of lanes.
+static int ADJACENT_LEFT_LANE_MARKER_START_OFFSET;       // Left Teal line, starts offset below upper left corner
+static int ADJACENT_LEFT_LANE_MARKER_END_OFFSET;  // ends offset to the left of upper center of lanes.
+static int ADJACENT_RIGHT_LANE_MARKER_START_OFFSET;      // Right Teal line, starts offset below upper right corner
+static int ADJACENT_RIGHT_LANE_MARKER_END_OFFSET; // ends offset to the right of upper center of lanes.
+static float AVG_DISTANCE_FROM_LINE_THRESHOLD_FACTOR; //Used to determine outliers from the cluster of found lane points
+static int LEFT_LANE_MIN_ANGLE;
+static int LEFT_LANE_MAX_ANGLE;
+static int RIGHT_LANE_MIN_ANGLE;
+static int RIGHT_LANE_MAX_ANGLE;
 
 cv::Point IDEAL_LEFT_LANE_MARKER_START;
 cv::Point IDEAL_LEFT_LANE_MARKER_END;
@@ -78,8 +69,7 @@ cv::Point ADJACENT_LEFT_LANE_MARKER_END;
 cv::Point ADJACENT_RIGHT_LANE_MARKER_START;
 cv::Point ADJACENT_RIGHT_LANE_MARKER_END;
 
-std::ofstream outFileLeft;
-std::ofstream outFileRight;
+
 
 void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>& process_input, ObjectEvent<OutputContainer>& process_output)
 {
@@ -102,7 +92,7 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 	std::vector<float> leftLaneLine, rightLaneLine;
 	cv::Point leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint;
 
-	int twoWayProjectionDistanceForLine = 200 * imageResizeFactor;
+	int twoWayProjectionDistanceForLine = 300;
 
 	//These are just for calculating the fps ratio
 	clock_t oldTime = clock();
@@ -112,9 +102,32 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 	InputContainer input;
 	OutputContainer output;
 	cv::Mat resizedImage;
-	outFileLeft.open("laneAnglesLeft.csv");
-	outFileRight.open("laneAnglesRight.csv");
 
+	//Read values from config file
+	HORIZONTAL_RESOLUTION = stoi(cfgFile.readValueOrDefault("HORIZONTAL_RESOLUTION", ""));
+	VERTICAL_RESOLUTION = stoi(cfgFile.readValueOrDefault("VERTICAL_RESOLUTION", ""));
+	BOX_WIDTH = stoi(cfgFile.readValueOrDefault("BOX_WIDTH", ""));
+	BOX_HEIGHT = stoi(cfgFile.readValueOrDefault("BOX_HEIGHT", ""));
+	HORIZONTAL_CENTER = stoi(cfgFile.readValueOrDefault("HORIZONTAL_CENTER", ""));
+	AVERAGING_WINDOW_SIZE = stoi(cfgFile.readValueOrDefault("AVERAGING_WINDOW_SIZE", ""));
+	VERTICAL_REGION_UPPER = stoi(cfgFile.readValueOrDefault("VERTICAL_REGION_UPPER", ""));
+	VERTICAL_REGION_LOWER = stoi(cfgFile.readValueOrDefault("VERTICAL_REGION_LOWER", ""));
+	HORIZONTAL_REGION_LEFT_OFFSET = stoi(cfgFile.readValueOrDefault("HORIZONTAL_REGION_LEFT_OFFSET", ""));
+	HORIZONTAL_REGION_RIGHT_OFFSET = stoi(cfgFile.readValueOrDefault("HORIZONTAL_REGION_RIGHT_OFFSET", ""));
+	dynamicCenterOfLanesXval = HORIZONTAL_CENTER;
+	IDEAL_LEFT_LANE_MARKER_START_OFFSET = stoi(cfgFile.readValueOrDefault("IDEAL_LEFT_LANE_MARKER_START_OFFSET", ""));
+	IDEAL_LEFT_LANE_MARKER_END_OFFSET = stoi(cfgFile.readValueOrDefault("IDEAL_LEFT_LANE_MARKER_END_OFFSET", ""));
+	IDEAL_RIGHT_LANE_MARKER_START_OFFSET = stoi(cfgFile.readValueOrDefault("IDEAL_RIGHT_LANE_MARKER_START_OFFSET", ""));
+	IDEAL_RIGHT_LANE_MARKER_END_OFFSET = stoi(cfgFile.readValueOrDefault("IDEAL_RIGHT_LANE_MARKER_END_OFFSET", ""));
+	ADJACENT_LEFT_LANE_MARKER_START_OFFSET = stoi(cfgFile.readValueOrDefault("ADJACENT_LEFT_LANE_MARKER_START_OFFSET", ""));
+	ADJACENT_LEFT_LANE_MARKER_END_OFFSET = stoi(cfgFile.readValueOrDefault("ADJACENT_LEFT_LANE_MARKER_END_OFFSET", ""));
+	ADJACENT_RIGHT_LANE_MARKER_START_OFFSET = stoi(cfgFile.readValueOrDefault("ADJACENT_RIGHT_LANE_MARKER_START_OFFSET", ""));
+	ADJACENT_RIGHT_LANE_MARKER_END_OFFSET = stoi(cfgFile.readValueOrDefault("ADJACENT_RIGHT_LANE_MARKER_END_OFFSET", ""));
+	AVG_DISTANCE_FROM_LINE_THRESHOLD_FACTOR = stof(cfgFile.readValueOrDefault("AVG_DISTANCE_FROM_LINE_THRESHOLD_FACTOR", ""));
+	LEFT_LANE_MIN_ANGLE = stoi(cfgFile.readValueOrDefault("LEFT_LANE_MIN_ANGLE", ""));
+	LEFT_LANE_MAX_ANGLE = stoi(cfgFile.readValueOrDefault("LEFT_LANE_MAX_ANGLE", ""));
+	RIGHT_LANE_MIN_ANGLE = stoi(cfgFile.readValueOrDefault("RIGHT_LANE_MIN_ANGLE", ""));
+	RIGHT_LANE_MAX_ANGLE = stoi(cfgFile.readValueOrDefault("RIGHT_LANE_MAX_ANGLE", ""));
 
 	//while (gRunning && detection_input.WaitGetReset<double, std::milli>(1500ms, input))
 	while (gRunning && process_input.WaitGetReset(input))
@@ -132,8 +145,8 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 		if (output.frameCounter % FRAME_SKIP == 0)
 		{
 			//All dynamic lines are redefined here
-			HORIZONTAL_REGION_LEFT = std::max(0, (int)((dynamicCenterOfLanesXval - 330) * imageResizeFactor));
-			HORIZONTAL_REGION_RIGHT = std::min(HORIZONTAL_RESOLUTION, (int)((dynamicCenterOfLanesXval + 300) * imageResizeFactor));
+			HORIZONTAL_REGION_LEFT = std::max(0, (int)(dynamicCenterOfLanesXval - HORIZONTAL_REGION_LEFT_OFFSET));
+			HORIZONTAL_REGION_RIGHT = std::min(HORIZONTAL_RESOLUTION, (int)(dynamicCenterOfLanesXval + HORIZONTAL_REGION_RIGHT_OFFSET));
 
 			IDEAL_LEFT_LANE_MARKER_START = cv::Point(dynamicCenterOfLanesXval - IDEAL_LEFT_LANE_MARKER_START_OFFSET * imageResizeFactor, VERTICAL_REGION_LOWER); //720
 			IDEAL_LEFT_LANE_MARKER_END = cv::Point(dynamicCenterOfLanesXval - IDEAL_LEFT_LANE_MARKER_END_OFFSET * imageResizeFactor, VERTICAL_REGION_UPPER); //995
@@ -270,10 +283,13 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			line(output.outputMat, leftLaneStartPoint, leftLaneEndPoint, cv::Scalar(0, 0, 1), 2, 8);
 			line(output.outputMat, rightLaneStartPoint, rightLaneEndPoint, cv::Scalar(1, 0, 0), 2, 8);
 			//debug - approximate idealized lane margins
-			//line(output.outputMat, IDEAL_LEFT_LANE_MARKER_START, IDEAL_LEFT_LANE_MARKER_END, cv::Scalar(0, 127, 127), 1, 8);
-			//line(output.outputMat, IDEAL_RIGHT_LANE_MARKER_START, IDEAL_RIGHT_LANE_MARKER_END, cv::Scalar(0, 127, 127), 1, 8);
-			//line(output.outputMat, ADJACENT_LEFT_LANE_MARKER_START, ADJACENT_LEFT_LANE_MARKER_END, cv::Scalar(127, 127, 0), 1, 8);
-			//line(output.outputMat, ADJACENT_RIGHT_LANE_MARKER_START, ADJACENT_RIGHT_LANE_MARKER_END, cv::Scalar(127, 127, 0), 1, 8);
+			if (renderingOutput)
+			{
+				line(output.outputMat, IDEAL_LEFT_LANE_MARKER_START, IDEAL_LEFT_LANE_MARKER_END, cv::Scalar(0, 127, 127), 1, 8);
+				line(output.outputMat, IDEAL_RIGHT_LANE_MARKER_START, IDEAL_RIGHT_LANE_MARKER_END, cv::Scalar(0, 127, 127), 1, 8);
+				line(output.outputMat, ADJACENT_LEFT_LANE_MARKER_START, ADJACENT_LEFT_LANE_MARKER_END, cv::Scalar(127, 127, 0), 1, 8);
+				line(output.outputMat, ADJACENT_RIGHT_LANE_MARKER_START, ADJACENT_RIGHT_LANE_MARKER_END, cv::Scalar(127, 127, 0), 1, 8);
+			}
 
 			dynamicCenterOfLanesXval = getCenterOfLanes(leftLaneStartPoint, leftLaneEndPoint, rightLaneStartPoint, rightLaneEndPoint);
 			output.BezPointThree = getPointVectorAverage(upperCenterHistoryV);
@@ -470,6 +486,7 @@ void plotLanePoints2(cv::Mat &resizedImage, std::vector<cv::Point> &leftLaneUnfi
 
 std::vector<float> findBestFittingCurve(std::vector<cv::Point> &lanePoints)
 {
+	//Yeah right, curve...
 	std::vector<float> laneLine;
 	cv::fitLine(lanePoints, laneLine, CV_DIST_L2, 0, 0.01, 0.01);
 	return laneLine;
@@ -503,7 +520,7 @@ const std::vector<cv::Point> filterLanePoints(const std::vector<cv::Point>& unfi
 
 	for (int i = 0; i < closeToNearLinePoints.size(); ++i)
 	{
-		if (distancesToNearLine[i] < avgDistToNear * 2)
+		if (distancesToNearLine[i] < avgDistToNear * AVG_DISTANCE_FROM_LINE_THRESHOLD_FACTOR)
 		{
 			filteredPoints.push_back(closeToNearLinePoints[i]);
 		}
@@ -705,10 +722,9 @@ void filterLanesBeforeInsertingInHistory(cv::Point &startPoint, cv::Point &endPo
 {
 	double angle = atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
 	angle = angle * 180 / CV_PI;
-	std::cout << angle << "   ";
 	if (isLeft)
 	{
-		//if (angle >= -90 && angle < -34)
+		if (angle >= LEFT_LANE_MIN_ANGLE && angle < LEFT_LANE_MAX_ANGLE)
 		{
 			leftLaneStartHistoryV.push_back(startPoint);
 			leftLaneEndHistoryV.push_back(endPoint);
@@ -716,7 +732,7 @@ void filterLanesBeforeInsertingInHistory(cv::Point &startPoint, cv::Point &endPo
 	}
 	else
 	{
-		//if (angle <= -90 && angle > -155)
+		if (angle <= RIGHT_LANE_MAX_ANGLE && angle > RIGHT_LANE_MIN_ANGLE)
 		{
 			rightLaneStartHistoryV.push_back(startPoint);
 			rightLaneEndHistoryV.push_back(endPoint);
