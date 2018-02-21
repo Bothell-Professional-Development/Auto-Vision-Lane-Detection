@@ -12,6 +12,7 @@
 #include <cmath>
 
 #define FRAME_SKIP 1
+#define steerCommandArraySize 10
 
 template <class T>
 struct ObjectEvent
@@ -114,3 +115,6 @@ struct OutputContainer
 	cv::Point2f BezPointTwo;
 	cv::Point2f BezPointThree;
 };
+
+
+
