@@ -13,8 +13,8 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 cv::Mat HOGHistogramWithTranspose(const cv::Mat& currentFrame);  //Used for testing. Without transpose is used for training
 std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, cv::Mat &resizedImage, cv::Mat &outputMat, cv::Ptr<cv::ml::SVM> &svm);
 void plotLanePoints(cv::Mat &resizedImage, std::vector<cv::Point> &leftLaneUnfilteredPoints, std::vector<cv::Point> &rightLaneUnfilteredPoints);
+void plotLanePoints2(cv::Mat &resizedImage, std::vector<cv::Point> &leftLaneUnfilteredPoints, std::vector<cv::Point> &rightLaneUnfilteredPoints);
 std::vector<float> findBestFittingCurve(std::vector<cv::Point> &lanePoints);
-std::vector<cv::Point> filterLanePoints(std::vector<cv::Point> &unfilteredPoints, cv::Point line_start, cv::Point line_end);
 const std::vector<cv::Point> filterLanePoints(const std::vector<cv::Point>& unfilteredPoints,
 	const cv::Point nearLineStart,
 	const cv::Point nearLineEnd,
@@ -33,3 +33,5 @@ bool findLineLineIntersection(const int32_t& x0, const int32_t& y0,
 	const int32_t& x2, const int32_t& y2,
 	const int32_t& x3, const int32_t& y3,
 	int32_t& xOut, int32_t& yOut);
+
+void filterLanesBeforeInsertingInHistory(cv::Point &startPoint, cv::Point &endPoint, std::vector<cv::Point> &startHistoryV, std::vector<cv::Point> &endHistoryV, bool isLeft);
