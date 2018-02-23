@@ -101,10 +101,10 @@ unsigned int CExampleExport::Initialize()
 	return 0;
 }
 
-double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned int bufferWidth, const unsigned int bufferHeight)
+double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned int bufferHeight, const unsigned int bufferWidth)
 {
-	nframe.create(bufferHeight, bufferWidth, CV_32FC3);
-	std::memcpy(nframe.data, bufferCopy, nframe.elemSize());
+	nframe = cv::Mat(bufferHeight, bufferWidth, CV_8UC3, bufferCopy);
+
 	input.frame = nframe;
 
 	if (input.frame.empty()) {
@@ -113,6 +113,12 @@ double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned in
 
 	detection_input.SetAndSignal(input);
 	detection_output.TryGetReset(output);
+
+	if (output.outputMat.size.p && *(output.outputMat.size.p))
+	{
+		imshow("Classification", output.outputMat);
+		waitKey(1);
+	}
 
 	steerAngle = bezier_calc(steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
 	return OutputArray;

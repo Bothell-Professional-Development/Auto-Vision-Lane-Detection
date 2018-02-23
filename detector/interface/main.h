@@ -1,10 +1,9 @@
 #pragma once
-#include "afx.h"
 
 #include "ConfigFile.h"
 #include "proj.h"
 
-class __declspec(dllexport) CExampleExport : public CObject
+class __declspec(dllexport) CExampleExport
 {
 	bool running = false;
 	double steerAngle = 0.0;
@@ -21,6 +20,6 @@ class __declspec(dllexport) CExampleExport : public CObject
 
 public:
 	unsigned int Initialize();
-	double* DetectLanes(unsigned char* bufferCopy, const unsigned int bufferWidth, const unsigned int bufferHeight);
+	double* DetectLanes(unsigned char* bufferCopy, const unsigned int bufferHeight, const unsigned int bufferWidth);
 	unsigned int exit();
 };
