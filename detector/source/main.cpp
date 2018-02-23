@@ -94,42 +94,36 @@ unsigned int CExampleExport::Initialize()
 
 	gRunning = &running;
 	cfgFile.pullValuesFromFile(CFG_FILE_PATH);
-
-	//Create and load already trained SVM classifier
-	//Check if file exists
-	if (access(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", "").c_str(), 0) != 0)
-	{
-		std::cout << "Left SVM file doesn't exist" << std::endl;
-		return 1;
-	}
-
-	if (access(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", "").c_str(), 0) != 0)
-	{
-		std::cout << "Right SVM file doesn't exist" << std::endl;
-		return 1;
-	}
-
+	if (access(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", "").c_str(), 0) != 0) { std::cout << "Left SVM file doesn't exist" << std::endl; exit(); }
+	if (access(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", "").c_str(), 0) != 0) { std::cout << "Right SVM file doesn't exist" << std::endl; exit(); }
+	
 	processingThread = std::thread(FrameProcessor, std::ref(cfgFile), std::ref(detection_input), std::ref(detection_output), std::ref(running));
 	return 0;
 }
 
-float CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned int bufferWidth, const unsigned int bufferHeight)
+double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned int bufferWidth, const unsigned int bufferHeight)
 {
-	InputContainer input;
-	OutputContainer output;
+	nframe.create(bufferHeight, bufferWidth, CV_32FC3);
+	std::memcpy(nframe.data, bufferCopy, nframe.elemSize());
+	input.frame = nframe;
 
-	input.frame = cv::Mat::Mat(bufferHeight, bufferWidth, CV_32FC1, bufferCopy);
+	if (input.frame.empty()) {
+		return nullptr;
+	}
+
 	detection_input.SetAndSignal(input);
 	detection_output.TryGetReset(output);
-	return bezier_calc(0, steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree);
+
+	steerAngle = bezier_calc(steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
+	return OutputArray;
 }
 
 unsigned int CExampleExport::exit()
 {
-	//std::raise(SIGINT);
 	running = false;
 	if (processingThread.joinable())
 	{
+		detection_input.SetAndSignal(input);
 		processingThread.join();
 	}
 
@@ -186,7 +180,7 @@ int main()
 	double steerAngle = 0.0;
 	float steerAngleAvg = 0.0;
 	int avgSteps = 0;
-	double OutputArray[steerCommandArraySize];
+	double OutputArray[steerCommandArraySize] = { 0. };
 
 	while (running)
 	{
@@ -215,7 +209,10 @@ int main()
 		{
 			fps = 1000 / output.timePF;
 			std::cout << "\nProcessing time/frame " << output.frameCounter << " : " << output.timePF << " (" << fps << "fps)" << 
-				" :: last angle: " << (steerAngle) << " progress: " << curveProgress << " steps\n";
+				" :: last angle: " << (steerAngle) << " progress: " << curveProgress << " steps" << " ( ";
+			for (int i = 0; i < steerCommandArraySize; ++i) { std::cout << std::fixed << OutputArray[i] << " "; }
+			std::cout << ")" << "\n";
+
 			fpsMean += fps;
 #if WIN32
 			if (output.outputMat.size.p && *(output.outputMat.size.p))
