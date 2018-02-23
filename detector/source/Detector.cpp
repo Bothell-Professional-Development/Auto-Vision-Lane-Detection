@@ -305,8 +305,12 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			//PID Controller visualization:
 			output.BezPointZero = { (float)HORIZONTAL_RESOLUTION / 2.f, (float)VERTICAL_RESOLUTION };
 			//Setting the intermediary points.  Eventually this will need to be updated to take into account  the angle of the wheels
-			output.BezPointOne = { output.BezPointZero.x, output.BezPointTwo.y };
-
+			//Now properly scaling:
+			//Following line commented out until we have a way to pull in the wheel angle to this area.
+			//output.BezPointOne = { (BezierMagnitude * sin(wheelAngle) + output.BezPointZero.x), (BezierMagnitude * cos(wheelAngle) + output.BezPointZero.y) };
+			//janky solution until then:
+			output.BezPointOne = { output.BezPointZero.x, output.BezPointZero.y - BezierMagnitude };
+			output.BezPointTwo = { BezierMagnitude * sin(atan((output.BezPointThree.x - output.BezPointTwo.x) / (output.BezPointThree.y - output.BezPointTwo.y))) , BezierMagnitude * cos(atan((output.BezPointThree.x - output.BezPointTwo.x) / (output.BezPointThree.y - output.BezPointTwo.y))) };
 			//some more setup for the actual drawing of lines.
 			cv::Point2f BezLineStart = { 0,0 };
 			cv::Point2f BezLineEnd = { 0,0 };
