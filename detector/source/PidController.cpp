@@ -34,7 +34,7 @@ double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointO
 		};
 		*/
 		//Add the result to the array
-		OutputArray[int(n)] = OutputAngle;
+		OutputArray[int(n)] = OutputAngle -  CV_PI/2.0;
 	}
 	//pass back the array!
 	return OutputArray[0]; 

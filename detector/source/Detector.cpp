@@ -338,6 +338,12 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			//outputMat.convertTo(outputMat, CV_8UC3); 
 			//imwrite("D:/WorkFolder/LaneDetectionTrainingData/SVM_Results.jpg", outputMat);
 			//return -1;
+
+			//Convert from Open CV's coordinate system to a normal one before they get passed into 
+			output.BezPointZero.y = (float)VERTICAL_RESOLUTION - output.BezPointZero.y;
+			output.BezPointOne.y = (float)VERTICAL_RESOLUTION - output.BezPointOne.y;
+			output.BezPointTwo.y = (float)VERTICAL_RESOLUTION - output.BezPointTwo.y;
+			output.BezPointThree.y = (float)VERTICAL_RESOLUTION - output.BezPointThree.y;
 		}
 
 		process_output.SetAndSignal(output);
