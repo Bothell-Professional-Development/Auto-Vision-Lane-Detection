@@ -15,8 +15,14 @@ double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointO
 	//We're given 3 of the 4 points we need to do our calculations, so this last portion here is what we need to do to speculate on the final point.
 	PointOne = { (BezierMagnitude * sin(wheelAngle) + PointZero.x), (BezierMagnitude * cos(wheelAngle) + PointZero.y) };
 	//Properly scaling the magnitute of the point two, so it doesn't completely depend on the box height
-	PointTwo = { PointThree.x + BezierMagnitude * sin(atan((PointThree.x - PointTwo.x) / (PointThree.y - PointTwo.y + std::numeric_limits<float>::min()))) ,
-		PointThree.y + BezierMagnitude * cos(atan((PointThree.x - PointTwo.x) / (PointThree.y - PointTwo.y + std::numeric_limits<float>::min()))) };
+	if (PointTwo.y == PointThree.y) {
+		PointTwo.y = PointThree.y - BezierMagnitude;
+	}
+	else
+	{
+		PointTwo = { PointThree.x + BezierMagnitude * sin(atan((PointThree.x - PointTwo.x) / (PointThree.y - PointTwo.y))) ,
+			PointThree.y + BezierMagnitude * cos(atan((PointThree.x - PointTwo.x) / (PointThree.y - PointTwo.y))) };
+	}
 	//setup the array to hold our results
 	for (double n = 0; n < steerCommandArraySize; n++) //important!  n NEEDS to be a double for the math to behave properly.
 	{
