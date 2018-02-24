@@ -23,9 +23,41 @@ double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointO
 		PointTwo = { PointThree.x + BezierMagnitude * sin(atan((PointThree.x - PointTwo.x) / (PointThree.y - PointTwo.y))) ,
 			PointThree.y + BezierMagnitude * cos(atan((PointThree.x - PointTwo.x) / (PointThree.y - PointTwo.y))) };
 	}
-	//setup the array to hold our results
-	for (double n = 0; n < steerCommandArraySize; n++) //important!  n NEEDS to be a double for the math to behave properly.
+	
+	//setup some points that make math possible
+	cv::Point2f BezLineStart = { 0,0 };
+	cv::Point2f BezLineEnd = { 0,0 };
+
+	for (double n = 0; n < steerCommandArraySize - 1; n++) //important!  n NEEDS to be a double for the math to behave properly.
 	{
+		if (n == 0)
+		{
+			BezLineStart =
+				pow(1 - (n / 10), 3) * PointZero
+				+ 3 * pow(1 - (n / 10), 2) * (n / 10) * PointOne
+				+ 3 * (1 - (n / 10)) * pow((n / 10), 2) * PointTwo
+				+ pow((n / 10), 3) * PointThree;
+		}
+		else
+		{
+			BezLineStart = BezLineEnd;
+		}
+
+		BezLineEnd = pow(1 - ((n + 1) / 10), 3) * PointZero
+			+ 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * PointOne
+			+ 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * PointTwo
+			+ pow(((n + 1) / 10), 3) * PointThree;
+		double OutputAngle = 0;
+		if (BezLineEnd.x == BezLineStart.x) {
+			OutputAngle = CV_PI / 2.;
+		}
+		else {
+			OutputAngle = atan2f((BezLineEnd.y - BezLineStart.y),(BezLineEnd.x - BezLineStart.x));
+		}
+		OutputArray[int(n)] = OutputAngle;
+
+		//old algorithm version, NOT WORKING  :'(
+		/*
 		//Step two, do the math.  Better now, that I found out the pow(a,b) function works by outputting a^b
 		//This algorithm now uses the tangent of the smoothest curve path to the center line at the given progress point through the curve.
 		Result = (3. * pow(1. - (n/ steerCommandArraySize), 2.) * (PointOne - PointZero))
@@ -34,13 +66,14 @@ double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointO
 		//Step three, do the monster math (use the resultant location to calculate an angle to which the wheels should steer)
 		double OutputAngle = atan(Result.y / Result.x);
 		//The following might be needed to properly convert to the intended steering angle, but that all depends on how the coordinate system works, and what angle we want to pick as "wheels pointing forward"
-		/*if (OutputAngle >= 90.)
+		if (OutputAngle >= CV_PI/2.)
 		{
-			OutputAngle = -(180. - OutputAngle);
+			OutputAngle = -(CV_PI - OutputAngle);
 		};
-		*/
+		
 		//Add the result to the array
-		OutputArray[int(n)] = OutputAngle -  CV_PI/2.0;
+		OutputArray[int(n)] = OutputAngle;
+		*/
 	}
 	//pass back the array!
 	return OutputArray[0]; 

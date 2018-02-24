@@ -303,7 +303,13 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			//output.BezPointOne = { (BezierMagnitude * sin(wheelAngle) + output.BezPointZero.x), (BezierMagnitude * cos(wheelAngle) + output.BezPointZero.y) };
 			//janky solution until then:
 			output.BezPointOne = { output.BezPointZero.x, output.BezPointZero.y - BezierMagnitude };
-			output.BezPointTwo = { BezierMagnitude * sin(atan((output.BezPointThree.x - output.BezPointTwo.x) / (output.BezPointThree.y - output.BezPointTwo.y))) , BezierMagnitude * cos(atan((output.BezPointThree.x - output.BezPointTwo.x) / (output.BezPointThree.y - output.BezPointTwo.y))) };
+			if (output.BezPointThree.y == output.BezPointTwo.y) {
+				output.BezPointTwo.y = output.BezPointThree.y + BezierMagnitude;
+			}
+			else {
+				output.BezPointTwo = { output.BezPointThree.x + BezierMagnitude * sin(atan((output.BezPointThree.x - output.BezPointTwo.x) / (output.BezPointThree.y - output.BezPointTwo.y))) ,
+					output.BezPointThree.y + BezierMagnitude * cos(atan((output.BezPointThree.x - output.BezPointTwo.x) / (output.BezPointThree.y - output.BezPointTwo.y))) };
+			};
 			//some more setup for the actual drawing of lines.
 			cv::Point2f BezLineStart = { 0,0 };
 			cv::Point2f BezLineEnd = { 0,0 };
