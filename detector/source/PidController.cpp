@@ -25,7 +25,7 @@ double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointO
 			+ (6. * (1. - (n / steerCommandArraySize))*(n / steerCommandArraySize) * (PointTwo - PointOne))
 			+ (3. * pow((n / steerCommandArraySize), 2.)*(PointThree - PointTwo));
 		//Step three, do the monster math (use the resultant location to calculate an angle to which the wheels should steer)
-		double OutputAngle = (90. - atan(Result.y / (Result.x - PointZero.x + 1)));
+		double OutputAngle = atan(Result.y / Result.x);
 		//The following might be needed to properly convert to the intended steering angle, but that all depends on how the coordinate system works, and what angle we want to pick as "wheels pointing forward"
 		/*if (OutputAngle >= 90.)
 		{
