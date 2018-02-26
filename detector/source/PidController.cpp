@@ -25,35 +25,20 @@ double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointO
 	}
 	
 	//setup some points that make math possible
-	cv::Point2f BezLineStart = { 0,0 };
-	cv::Point2f BezLineEnd = { 0,0 };
-
 	for (double n = 1; n < steerCommandArraySize; n++) //important!  n NEEDS to be a double for the math to behave properly.
 	{
-		if (n == 1)
-		{
-			BezLineStart =
-				pow(1 - (0), 3) * PointZero
-				+ 3 * pow(1 - (0), 2) * (0) * PointOne
-				+ 3 * (1 - (0)) * pow((0), 2) * PointTwo
-				+ pow((0), 3) * PointThree;
-		}
-		else
-		{
-			BezLineStart = BezLineEnd;
-		}
-
-		BezLineEnd = pow(1 - (n / 10), 3) * PointZero
-			+ 3 * pow(1 - (n / 10), 2) * (n / 10) * PointOne
-			+ 3 * (1 - (n / 10)) * pow((n / 10), 2) * PointTwo
-			+ pow((n / 10), 3) * PointThree;
-		double OutputAngle = 0;
-		//check for divide by 0 problems and set to what the answer should be in that case, otherwise get the real answer
-		if (BezLineEnd.x == BezLineStart.x) {
+		//This algorithm now uses the tangent of the smoothest curve path to the center line at the given progress point through the curve.
+		Result = (3. * pow(1. - (n / steerCommandArraySize), 2.) * (PointOne - PointZero))
+			+ (6. * (1. - (n / steerCommandArraySize))*(n / steerCommandArraySize) * (PointTwo - PointOne))
+			+ (3. * pow((n / steerCommandArraySize), 2.)*(PointThree - PointTwo));
+		//Step three, do the monster math (use the resultant location to calculate an angle to which the wheels should steer)
+				//check for divide by 0 problems and set to what the answer should be in that case, otherwise get the real answer
+		double OutputAngle;
+		if (Result.x == 0.) {
 			OutputAngle = CV_PI / 2.;
 		}
 		else {
-			OutputAngle = atan2f((BezLineEnd.y - BezLineStart.y),(BezLineEnd.x - BezLineStart.x));
+			OutputAngle = atan2f(Result.y,Result.x);
 		}
 		//arctan will output some strange-ish values that make sense for math but not for us.
 		//If it needs to go 1 degree to the right, the output is 89 degrees.  If it needs to go 1 degree to the left, the output is -89 degrees
@@ -66,25 +51,6 @@ double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointO
 			OutputAngle = (CV_PI / 2 - OutputAngle);
 		}
 		OutputArray[int(n)] = OutputAngle;
-
-		//old algorithm version.  Should still work, but the above version might be more efficient.  Will still need the fixes from line 51-67 to work properly.
-		/*
-		//Step two, do the math.  Better now, that I found out the pow(a,b) function works by outputting a^b
-		//This algorithm now uses the tangent of the smoothest curve path to the center line at the given progress point through the curve.
-		Result = (3. * pow(1. - (n/ steerCommandArraySize), 2.) * (PointOne - PointZero))
-			+ (6. * (1. - (n / steerCommandArraySize))*(n / steerCommandArraySize) * (PointTwo - PointOne))
-			+ (3. * pow((n / steerCommandArraySize), 2.)*(PointThree - PointTwo));
-		//Step three, do the monster math (use the resultant location to calculate an angle to which the wheels should steer)
-		double OutputAngle = atan(Result.y / Result.x);
-		//The following might be needed to properly convert to the intended steering angle, but that all depends on how the coordinate system works, and what angle we want to pick as "wheels pointing forward"
-		if (OutputAngle >= CV_PI/2.)
-		{
-			OutputAngle = -(CV_PI - OutputAngle);
-		};
-		
-		//Add the result to the array
-		OutputArray[int(n)] = OutputAngle;
-		*/
 	}
 	//pass back the array!
 	return OutputArray[0]; 
