@@ -307,8 +307,8 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 				output.BezPointTwo.y = output.BezPointThree.y + BezierMagnitude;
 			}
 			else {
-				output.BezPointTwo = { output.BezPointThree.x + BezierMagnitude * sin(atan((output.BezPointThree.x - output.BezPointTwo.x) / (output.BezPointThree.y - output.BezPointTwo.y))) ,
-					output.BezPointThree.y + BezierMagnitude * cos(atan((output.BezPointThree.x - output.BezPointTwo.x) / (output.BezPointThree.y - output.BezPointTwo.y))) };
+				output.BezPointTwo = { output.BezPointThree.x + BezierMagnitude * sin(atan2f(output.BezPointThree.y - output.BezPointTwo.y, output.BezPointThree.x - output.BezPointTwo.x)) ,
+					output.BezPointThree.y + BezierMagnitude * cos(atan2f(output.BezPointThree.y - output.BezPointTwo.y, output.BezPointThree.x - output.BezPointTwo.x)) };
 			};
 			//some more setup for the actual drawing of lines.
 			cv::Point2f BezLineStart = { 0,0 };
