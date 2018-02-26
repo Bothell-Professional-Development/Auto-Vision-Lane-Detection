@@ -307,8 +307,8 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 				output.BezPointTwo.y = output.BezPointThree.y + BezierMagnitude;
 			}
 			else {
-				output.BezPointTwo = { output.BezPointThree.x + BezierMagnitude * sin(atan2f(output.BezPointThree.y - output.BezPointTwo.y, output.BezPointThree.x - output.BezPointTwo.x)) ,
-					output.BezPointThree.y + BezierMagnitude * cos(atan2f(output.BezPointThree.y - output.BezPointTwo.y, output.BezPointThree.x - output.BezPointTwo.x)) };
+				output.BezPointTwo = { output.BezPointThree.x + BezierMagnitude * sin(atan2f(output.BezPointTwo.y - output.BezPointThree.y, output.BezPointTwo.x - output.BezPointThree.x)) ,
+					output.BezPointThree.y + BezierMagnitude * cos(atan2f(output.BezPointTwo.y - output.BezPointThree.y, output.BezPointTwo.x - output.BezPointThree.x)) };
 			};
 			//some more setup for the actual drawing of lines.
 			cv::Point2f BezLineStart = { 0,0 };
@@ -345,7 +345,7 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			//imwrite("D:/WorkFolder/LaneDetectionTrainingData/SVM_Results.jpg", outputMat);
 			//return -1;
 
-			//Convert from Open CV's coordinate system to a normal one before they get passed into 
+			//Convert from Open CV's coordinate system to a normal one before they get passed into the PID Controller.
 			output.BezPointZero.y = (float)VERTICAL_RESOLUTION - output.BezPointZero.y;
 			output.BezPointOne.y = (float)VERTICAL_RESOLUTION - output.BezPointOne.y;
 			output.BezPointTwo.y = (float)VERTICAL_RESOLUTION - output.BezPointTwo.y;

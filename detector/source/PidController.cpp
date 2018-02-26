@@ -50,7 +50,7 @@ double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointO
 		else {
 			OutputAngle = (CV_PI / 2 - OutputAngle);
 		}
-		OutputArray[int(n)] = OutputAngle;
+		OutputArray[int(n-1)] = OutputAngle;
 	}
 	//pass back the array!
 	return OutputArray[0]; 
