@@ -2,6 +2,7 @@
 
 #include "ConfigFile.h"
 #include "proj.h"
+#include "PidController.h"
 
 class __declspec(dllexport) CExampleExport
 {
@@ -18,8 +19,14 @@ class __declspec(dllexport) CExampleExport
 
 	cv::Mat nframe;
 
+    PIDController* pid;
+
 public:
-	unsigned int Initialize();
-	double* DetectLanes(unsigned char* bufferCopy, const unsigned int bufferHeight, const unsigned int bufferWidth);
+	unsigned int Initialize(const float valMax,
+                            const float valMin,
+                            const float kp,
+                            const float kd,
+                            const float ki);
+	double* DetectLanes(unsigned char* bufferCopy, const unsigned int bufferHeight, const unsigned int bufferWidth, const float dt);
 	unsigned int exit();
 };

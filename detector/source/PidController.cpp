@@ -46,3 +46,42 @@ double set_steering_module(double wheelAngle)
 	std::this_thread::sleep_for(1ms);
 	return wheelAngle;
 }
+
+PIDController::PIDController(const float valMax,
+                             const float valMin,
+                             const float kp,
+                             const float kd,
+                             const float ki) :
+    m_valMin(valMin),
+    m_valMax(valMax),
+    m_kp(kp),
+    m_kd(kd),
+    m_ki(ki),
+    m_previousError(0.0f),
+    m_integral(0.0f){}
+PIDController::PIDController(const PIDController& other){}
+PIDController::~PIDController(){}
+
+float PIDController::Calculate(const float setValue,
+                               const float currentValue,
+                               const float dt)
+{
+    float currentError = setValue - currentValue;
+    
+    float pOut = m_kp * currentError;
+    
+    m_integral += currentError * dt;
+    float iOut = m_ki * m_integral;
+
+    float derivative = (currentError - m_previousError) / dt;
+    float dOut = m_kd * derivative;
+
+    float pidOut = pOut + iOut + dOut;
+
+    pidOut = pidOut > m_valMax ? m_valMax : pidOut;
+    pidOut = pidOut < m_valMin ? m_valMin : pidOut;
+
+    m_previousError = currentError;
+    
+    return pidOut;
+}

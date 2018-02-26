@@ -88,7 +88,11 @@ static void KillHandler(int signal)
 }
 
 #ifdef LIBBuild
-unsigned int CExampleExport::Initialize()
+unsigned int CExampleExport::Initialize(const float valMax,
+                                        const float valMin,
+                                        const float kp,
+                                        const float kd,
+                                        const float ki)
 {
 	running = true;
 
@@ -98,15 +102,21 @@ unsigned int CExampleExport::Initialize()
 	if (access(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", "").c_str(), 0) != 0) { std::cout << "Right SVM file doesn't exist" << std::endl; exit(); }
 	
 	processingThread = std::thread(FrameProcessor, std::ref(cfgFile), std::ref(detection_input), std::ref(detection_output), std::ref(running));
+
+    pid = new PIDController(valMax, valMin, kp, kd, ki);
+    
 	return 0;
 }
 
-double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned int bufferHeight, const unsigned int bufferWidth)
+double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned int bufferHeight, const unsigned int bufferWidth, const float dt)
 {
-	nframe = cv::Mat(bufferHeight, bufferWidth, CV_8UC3, bufferCopy);
+	nframe = cv::Mat(bufferHeight, bufferWidth, CV_8UC4, bufferCopy);
+    
+   // Mat testRGB;
+    cv::cvtColor(nframe, nframe, cv::COLOR_BGRA2RGB);
 
 	input.frame = nframe;
-
+    
 	if (input.frame.empty()) {
 		return nullptr;
 	}
@@ -118,10 +128,12 @@ double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned in
 	{
 		imshow("Classification", output.outputMat);
 		waitKey(1);
+        steerAngle = pid->Calculate(400.0f, output.BezPointThree.x, dt);
 	}
-
-	steerAngle = bezier_calc(steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
-	return OutputArray;
+    
+	//steerAngle = bezier_calc(steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
+	//return OutputArray;
+    return &steerAngle;
 }
 
 unsigned int CExampleExport::exit()

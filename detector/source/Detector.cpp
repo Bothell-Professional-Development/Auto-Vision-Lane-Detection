@@ -161,7 +161,7 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			oldTime = newTime;
 			resize(input.frame, resizedImage, cv::Size(HORIZONTAL_RESOLUTION, VERTICAL_RESOLUTION));
 
-			cvtColor(resizedImage, resizedImage, CV_BGR2GRAY);
+			cvtColor(resizedImage, resizedImage, CV_RGB2GRAY);
 			resizedImage.convertTo(resizedImage, CV_32FC1); //Grayscale
 			resizedImage /= 255;
 
