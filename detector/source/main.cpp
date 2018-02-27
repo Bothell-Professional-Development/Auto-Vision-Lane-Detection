@@ -107,11 +107,9 @@ unsigned int CExampleExport::Initialize(const bool simulatorInput,
 	{
 		pid = new PIDController(valMax, valMin, kp, kd, ki);
 	}
-	else
-	{
-		processingThread = std::thread(FrameProcessor, std::ref(cfgFile), std::ref(detection_input), std::ref(detection_output), std::ref(running));
-	}
-    
+	
+	processingThread = std::thread(FrameProcessor, std::ref(cfgFile), std::ref(detection_input), std::ref(detection_output), std::ref(running));
+	
 	return 0;
 }
 
@@ -164,7 +162,13 @@ double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned in
 unsigned int CExampleExport::exit()
 {
 	running = false;
-	if (!m_simulatorInput && processingThread.joinable())
+	
+	if (pid)
+	{
+		delete pid;
+	}
+
+	if (processingThread.joinable())
 	{
 		detection_input.SetAndSignal(input);
 		processingThread.join();
