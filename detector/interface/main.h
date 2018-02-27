@@ -14,6 +14,8 @@ class __declspec(dllexport) CExampleExport
 	ObjectEvent<OutputContainer> detection_output;
 	std::thread processingThread;
 
+	bool m_simulatorInput;
+
 	InputContainer input;
 	OutputContainer output;
 
@@ -22,7 +24,8 @@ class __declspec(dllexport) CExampleExport
     PIDController* pid;
 
 public:
-	unsigned int Initialize(const float valMax,
+	unsigned int Initialize(const bool simulatorInput,
+		                    const float valMax,
                             const float valMin,
                             const float kp,
                             const float kd,
