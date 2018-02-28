@@ -88,32 +88,43 @@ static void KillHandler(int signal)
 }
 
 #ifdef LIBBuild
-unsigned int CExampleExport::Initialize(const float valMax,
+unsigned int CExampleExport::Initialize(const bool simulatorInput,
+										const float valMax,
                                         const float valMin,
                                         const float kp,
                                         const float kd,
                                         const float ki)
 {
 	running = true;
+	m_simulatorInput = simulatorInput;
 
 	gRunning = &running;
 	cfgFile.pullValuesFromFile(CFG_FILE_PATH);
 	if (access(cfgFile.readValueOrDefault("SVM_LEFT_MODEL", "").c_str(), 0) != 0) { std::cout << "Left SVM file doesn't exist" << std::endl; exit(); }
 	if (access(cfgFile.readValueOrDefault("SVM_RIGHT_MODEL", "").c_str(), 0) != 0) { std::cout << "Right SVM file doesn't exist" << std::endl; exit(); }
 	
+	if (simulatorInput)
+	{
+		pid = new PIDController(valMax, valMin, kp, kd, ki);
+	}
+	
 	processingThread = std::thread(FrameProcessor, std::ref(cfgFile), std::ref(detection_input), std::ref(detection_output), std::ref(running));
-
-    pid = new PIDController(valMax, valMin, kp, kd, ki);
-    
+	
 	return 0;
 }
 
 double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned int bufferHeight, const unsigned int bufferWidth, const float dt)
 {
-	nframe = cv::Mat(bufferHeight, bufferWidth, CV_8UC4, bufferCopy);
-    
-   // Mat testRGB;
-    cv::cvtColor(nframe, nframe, cv::COLOR_BGRA2RGB);
+	if (m_simulatorInput)
+	{
+		nframe = cv::Mat(bufferHeight, bufferWidth, CV_8UC4, bufferCopy);
+		// Mat testRGB;
+		cv::cvtColor(nframe, nframe, cv::COLOR_BGRA2RGB);
+	}
+	else
+	{
+		nframe = cv::Mat(bufferHeight, bufferWidth, CV_8UC3, bufferCopy);
+	}
 
 	input.frame = nframe;
     
@@ -128,17 +139,35 @@ double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned in
 	{
 		imshow("Classification", output.outputMat);
 		waitKey(1);
-        steerAngle = pid->Calculate(400.0f, output.BezPointThree.x, dt);
+		if (m_simulatorInput)
+		{
+			steerAngle = pid->Calculate(400.0f, output.BezPointThree.x, dt);
+		}
+		else
+		{
+			steerAngle = bezier_calc(steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
+		}
 	}
-    
-	//steerAngle = bezier_calc(steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
-	//return OutputArray;
-    return &steerAngle;
+
+	if (m_simulatorInput)
+	{
+		return &steerAngle;
+	}
+	else
+	{
+		return OutputArray;
+	}
 }
 
 unsigned int CExampleExport::exit()
 {
 	running = false;
+	
+	if (pid)
+	{
+		delete pid;
+	}
+
 	if (processingThread.joinable())
 	{
 		detection_input.SetAndSignal(input);
@@ -163,7 +192,20 @@ int main()
 
 	//Load video
 	cv::VideoCapture cap;
-	cap.open(cfgFile.readValueOrDefault("DETECTOR_INPUT", ""));
+	std::string file = cfgFile.readValueOrDefault("DETECTOR_INPUT", "");
+	if (file.size() == 1 && isdigit(file.front()))
+	{
+		// For opening web camera
+		std::string::size_type sz;
+		int i_camera = std::stoi(file, &sz);
+		cap.open(i_camera);
+	}
+	else
+	{
+		// Open a video file on disk
+		cap.open(file);
+	}
+
 	if (!cap.isOpened()) // Check for invalid input
 	{
 		std::cout << "Could not open or find the video file" << std::endl;
