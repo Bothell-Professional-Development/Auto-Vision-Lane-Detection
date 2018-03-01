@@ -72,6 +72,7 @@ file(MAKE_DIRECTORY			${INPUT_FOLDER})
 
 ADD_SUBDIRECTORY(common_lib)
 ADD_SUBDIRECTORY(detector)
+ADD_SUBDIRECTORY(detector_lib)
 if(WIN32)
     ADD_SUBDIRECTORY(trainer)
 endif()
