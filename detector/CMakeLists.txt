@@ -23,7 +23,7 @@ copy_if_missing(//USBTH1MS002/USSilo/Automotive/Public/Bothell_Professional_Deve
 copy_if_missing(//USBTH1MS002/USSilo/Automotive/Public/Bothell_Professional_Development/Auto-Vision-Lane-Detection    ${INPUT_FOLDER} sim_training.avi)
 
 create_generated_header(${PROJECT_SOURCE_DIR}/interface/generated.h
-	"#define CFG_FILE_PATH \"${SVM_DETECTOR_CONFIG}\""
+    "#define CFG_FILE_PATH ./SVM_Detector.cfg"
 )
 
 create_generated_config(${SVM_DETECTOR_CONFIG}
@@ -175,25 +175,25 @@ else()
     # find_library(OCV_FFMPEG_LIBRARY opencv_ffmpeg hints ${LIBRARIES_DIR})
 endif()
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_CORE_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_CORE_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_CORE_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_CORE_LIBRARY_D})
 
 #target_link_libraries(${PROJECT_NAME} ${OCV_FFMPEG_LIBRARY})
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_HIGHGUI_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_HIGHGUI_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_HIGHGUI_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_HIGHGUI_LIBRARY_D})
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_IMGCODECS_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_IMGCODECS_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_IMGCODECS_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_IMGCODECS_LIBRARY_D})
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_IMGPROC_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_IMGPROC_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_IMGPROC_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_IMGPROC_LIBRARY_D})
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_ML_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_ML_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_ML_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_ML_LIBRARY_D})
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_VIDEOIO_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_VIDEOIO_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_VIDEOIO_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_VIDEOIO_LIBRARY_D})
 
 #target_link_libraries(${PROJECT_NAME} optimized ${OCV_FFMPEG_LIBRARY})
 #target_link_libraries(${PROJECT_NAME} debug ${OCV_FFMPEG_LIBRARY_D})
@@ -208,6 +208,7 @@ file(COPY ${CMAKE_SOURCE_DIR}/opencv3.3/${TARGET_OS}/libs/${LIB_PREFIX}opencv_vi
 if(WIN32)
     file(COPY ${CMAKE_SOURCE_DIR}/opencv3.3/${TARGET_OS}/libs/${LIB_PREFIX}opencv_ffmpeg${LIB_POSTFIX}.${LIB_EXT} DESTINATION ${PROJECT_BINARY_DIR}/Release)
 endif()
+copy_if_missing(${CONFIG_FOLDER} ${PROJECT_BINARY_DIR}/Release SVM_Detector.cfg)
 
 file(COPY ${CMAKE_SOURCE_DIR}/opencv3.3/${TARGET_OS}/libs/${LIB_PREFIX}opencv_core${LIB_POSTFIX_D}.${LIB_EXT} DESTINATION ${PROJECT_BINARY_DIR}/Debug)
 file(COPY ${CMAKE_SOURCE_DIR}/opencv3.3/${TARGET_OS}/libs/${LIB_PREFIX}opencv_highgui${LIB_POSTFIX_D}.${LIB_EXT} DESTINATION ${PROJECT_BINARY_DIR}/Debug)
@@ -218,5 +219,6 @@ file(COPY ${CMAKE_SOURCE_DIR}/opencv3.3/${TARGET_OS}/libs/${LIB_PREFIX}opencv_vi
 if(WIN32)
     file(COPY ${CMAKE_SOURCE_DIR}/opencv3.3/${TARGET_OS}/libs/${LIB_PREFIX}opencv_ffmpeg${LIB_POSTFIX}.${LIB_EXT} DESTINATION ${PROJECT_BINARY_DIR}/Debug)
 endif()
+copy_if_missing(${CONFIG_FOLDER} ${PROJECT_BINARY_DIR}/Debug SVM_Detector.cfg)
 
 
