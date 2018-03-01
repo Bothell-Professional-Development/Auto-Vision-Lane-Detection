@@ -114,6 +114,7 @@ struct OutputContainer
 	cv::Point2f BezPointOne;
 	cv::Point2f BezPointTwo;
 	cv::Point2f BezPointThree;
+	float SteerAngle;
 };
 
 
