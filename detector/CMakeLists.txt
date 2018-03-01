@@ -47,7 +47,7 @@ include_directories(
 
 if(LIBBuild)
     add_definitions(-DLIBBuild -DUNICODE -D_AFXDLL)
-    add_library(${PROJECT_NAME} STATIC ${${PROJECT_NAME}_SOURCE})
+    add_library(${PROJECT_NAME} SHARED ${${PROJECT_NAME}_SOURCE})
 else()
 	add_definitions(-DUNICODE)
 	add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SOURCE})

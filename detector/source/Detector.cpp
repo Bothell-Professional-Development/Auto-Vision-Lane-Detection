@@ -298,21 +298,36 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			//PID Controller visualization:
 			output.BezPointZero = { (float)HORIZONTAL_RESOLUTION / 2.f, (float)VERTICAL_RESOLUTION };
 			//Setting the intermediary points.  Eventually this will need to be updated to take into account  the angle of the wheels
+			
+			//temporary conversion to a normal coordinate system so that my math works:
+
+			output.BezPointZero.y = (float)VERTICAL_RESOLUTION - output.BezPointZero.y;
+			output.BezPointOne.y = (float)VERTICAL_RESOLUTION - output.BezPointOne.y;
+			output.BezPointTwo.y = (float)VERTICAL_RESOLUTION - output.BezPointTwo.y;
+			output.BezPointThree.y = (float)VERTICAL_RESOLUTION - output.BezPointThree.y;
+			
 			//Now properly scaling:
 			//Following line commented out until we have a way to pull in the wheel angle to this area.
-			//output.BezPointOne = { (BezierMagnitude * sin(wheelAngle) + output.BezPointZero.x), (BezierMagnitude * cos(wheelAngle) + output.BezPointZero.y) };
+			//output.BezPointOne = { (BezierMagnitude * sin(output.SteerAngle) + output.BezPointZero.x), (BezierMagnitude * cos(wheelAngle) + output.BezPointZero.y) };
 			//janky solution until then:
-			output.BezPointOne = { output.BezPointZero.x, output.BezPointZero.y - BezierMagnitude };
-			if (output.BezPointThree.y == output.BezPointTwo.y) {
-				output.BezPointTwo.y = output.BezPointThree.y + BezierMagnitude;
+			output.BezPointOne = { output.BezPointZero.x, output.BezPointZero.y + BezierMagnitude };
+			if (output.BezPointThree.x == output.BezPointTwo.x) {
+				output.BezPointTwo.y = output.BezPointThree.y - BezierMagnitude;
 			}
 			else {
-				output.BezPointTwo = { output.BezPointThree.x + BezierMagnitude * sin(atan2f(output.BezPointTwo.y - output.BezPointThree.y, output.BezPointTwo.x - output.BezPointThree.x)) ,
-					output.BezPointThree.y + BezierMagnitude * cos(atan2f(output.BezPointTwo.y - output.BezPointThree.y, output.BezPointTwo.x - output.BezPointThree.x)) };
+				output.BezPointTwo = { output.BezPointTwo.x + BezierMagnitude * sin(atan2f(output.BezPointThree.y - output.BezPointTwo.y, output.BezPointThree.x - output.BezPointTwo.x)) ,
+					output.BezPointTwo.y + BezierMagnitude * cos(atan2f(output.BezPointThree.y - output.BezPointTwo.y, output.BezPointThree.x - output.BezPointTwo.x)) };
 			};
 			//some more setup for the actual drawing of lines.
 			cv::Point2f BezLineStart = { 0,0 };
 			cv::Point2f BezLineEnd = { 0,0 };
+
+			//Switch back to Open CV's coordinate system so that display works:
+			output.BezPointZero.y = (float)VERTICAL_RESOLUTION - output.BezPointZero.y;
+			output.BezPointOne.y = (float)VERTICAL_RESOLUTION - output.BezPointOne.y;
+			output.BezPointTwo.y = (float)VERTICAL_RESOLUTION - output.BezPointTwo.y;
+			output.BezPointThree.y = (float)VERTICAL_RESOLUTION - output.BezPointThree.y;
+
 			//Time to draw the best fit curve.  TODO: Make it adjustable how many line segments we want to display (because changing it manually is a pain right now)
 			for (double n = 0; n < 10; n++) //important!  n NEEDS to be a double for the math to behave properly.
 			{
