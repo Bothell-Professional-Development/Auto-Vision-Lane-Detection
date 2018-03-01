@@ -4,24 +4,17 @@ project (EBAutoVisionLaneDetection)
 # Create gitignore for build dir
 file(WRITE ${PROJECT_BINARY_DIR}/.gitignore "/*")
 
-
-
 # Common Definitions
-set(INIT_GENERATED      FALSE CACHE BOOL "")
+set(INIT_GENERATED_FILES	FALSE CACHE BOOL "")
 
-set(SVM_OUTPUT_FOLDER	${PROJECT_BINARY_DIR}/_SVMModel)
-file(MAKE_DIRECTORY		${SVM_OUTPUT_FOLDER})
+set(SVM_OUTPUT_FOLDER		${PROJECT_BINARY_DIR}/_SVMModel)
+file(MAKE_DIRECTORY			${SVM_OUTPUT_FOLDER})
 
-set(CONFIG_FOLDER		${PROJECT_BINARY_DIR}/_Config)
-file(MAKE_DIRECTORY		${CONFIG_FOLDER})
+set(CONFIG_FOLDER			${PROJECT_BINARY_DIR}/_Config)
+file(MAKE_DIRECTORY			${CONFIG_FOLDER})
 
-set(INPUT_FOLDER		${PROJECT_BINARY_DIR}/_Input)
-file(MAKE_DIRECTORY		${INPUT_FOLDER})
-
-set(SVM_OUTPUT_LEFT		${SVM_OUTPUT_FOLDER}/SVM_HOG_LeftLane.xml)
-set(SVM_OUTPUT_RIGHT	${SVM_OUTPUT_FOLDER}/SVM_HOG_RightLane.xml)
-set(SVM_INPUT			${PROJECT_BINARY_DIR}/_SVMInputData)
-
+set(INPUT_FOLDER			${PROJECT_BINARY_DIR}/_Input)
+file(MAKE_DIRECTORY			${INPUT_FOLDER})
 
 
 # Utility function
@@ -58,9 +51,27 @@ set(SVM_INPUT			${PROJECT_BINARY_DIR}/_SVMInputData)
 		endif()
 	endfunction(create_generated_config)
 
+	function(copy_if_missing src_dir dst_dir file_name)
+		set(src ${src_dir}/${file_name})
+		set(dst ${dst_dir}/${file_name})
+
+		if(NOT EXISTS ${src})
+			message(SEND_ERROR "${src}" " doesn't exist")
+			return()
+		endif()
+
+		if (EXISTS ${dst})
+			message(STATUS ${dst} " already exists")
+			return()
+		endif()
+
+		if(EXISTS "${src}" AND (NOT EXISTS "${dst}" OR INIT_GENERATED))
+			file(COPY ${src} DESTINATION ${dst_dir})
+		endif()
+	endfunction(copy_if_missing)
+
 ADD_SUBDIRECTORY(common_lib)
 ADD_SUBDIRECTORY(detector)
 if(WIN32)
     ADD_SUBDIRECTORY(trainer)
-    # ADD_SUBDIRECTORY(tools)
 endif()

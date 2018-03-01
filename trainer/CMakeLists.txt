@@ -2,13 +2,19 @@ cmake_minimum_required (VERSION 2.6)
 project (EBLaneDetectorTrainer)
 
 # Create generated folder to hold SVM output
-set(SVM_INPUT_LEFT_POS	${SVM_INPUT}/positive/left/)
-set(SVM_INPUT_LEFT_NEG  ${SVM_INPUT}/negative/left/)
-set(SVM_INPUT_RIGHT_POS ${SVM_INPUT}/positive/right/)
-set(SVM_INPUT_RIGHT_NEG ${SVM_INPUT}/negative/right/)
+set(SVM_OUTPUT_LEFT		${SVM_OUTPUT_FOLDER}/SVM_HOG_LeftLane.xml CACHE STRING "")
+set(SVM_OUTPUT_RIGHT	${SVM_OUTPUT_FOLDER}/SVM_HOG_RightLane.xml CACHE STRING "")
 
-set(SVM_DETECTOR_CONFIG ${CONFIG_FOLDER}/SVM_Trainer.cfg)
-set(DETECTOR_INPUT ${INPUT_FOLDER}/2.MP4)
+set(SVM_INPUT			${PROJECT_BINARY_DIR}/_SVMTrainingData)
+file(MAKE_DIRECTORY		${SVM_INPUT})
+
+set(SVM_INPUT_LEFT_POS	${SVM_INPUT}/positive/left/ CACHE STRING "")
+set(SVM_INPUT_LEFT_NEG  ${SVM_INPUT}/negative/left/ CACHE STRING "")
+set(SVM_INPUT_RIGHT_POS ${SVM_INPUT}/positive/right/ CACHE STRING "")
+set(SVM_INPUT_RIGHT_NEG ${SVM_INPUT}/negative/right/ CACHE STRING "")
+
+set(SVM_DETECTOR_CONFIG ${CONFIG_FOLDER}/SVM_Trainer.cfg CACHE STRING "")
+set(TRAINER_INPUT ${INPUT_FOLDER}/2.MP4 CACHE STRING "")
 
 file(MAKE_DIRECTORY		${SVM_INPUT_LEFT_POS})
 file(MAKE_DIRECTORY		${SVM_INPUT_LEFT_NEG})
