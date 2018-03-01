@@ -53,7 +53,6 @@ void LaneDetectionWorkLoop(DrivingSimulation* simulation,
 
     while(true)
     {
-
         //std::cout << "Workloop executed!\n" << std::endl;
         if(simulation->GetTrackCapture())
         {

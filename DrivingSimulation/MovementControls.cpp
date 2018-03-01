@@ -52,7 +52,9 @@ MovementControls::MovementControls() :
     m_mouseSensitivityX(DEFAULT_MOUSE_SENSITIVITY_X),
     m_mouseSensitivityY(DEFAULT_MOUSE_SENSITIVITY_Y),
     m_mouseAccelerationX(DEFAULT_MOUSE_ACCELERATION_X),
-    m_mouseAccelerationY(DEFAULT_MOUSE_ACCELERATION_Y){}
+    m_mouseAccelerationY(DEFAULT_MOUSE_ACCELERATION_Y),
+    m_velocity(0.0f, 0.0f, 0.0f),
+    m_rotationalVelocity(0.0f, 0.0f, 0.0f){}
 MovementControls::MovementControls(const MovementControls& other){}
 MovementControls::~MovementControls(){}
 
