@@ -53,7 +53,7 @@ double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointO
 		OutputArray[int(n-1)] = OutputAngle;
 	}
 	//pass back the array!
-	return OutputArray[4]; 
+	return OutputArray[0]; 
 }
 
 double set_steering_module(double wheelAngle)

@@ -309,10 +309,9 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			
 			//Now properly scaling:
 			//Following line commented out until we have a way to pull in the wheel angle to this area.
-			output.BezPointOne = { (BezierMagnitude * sin((float)output.SteerAngle) + output.BezPointZero.x),
-				(BezierMagnitude * cos((float)output.SteerAngle) + output.BezPointZero.y) };
+			//output.BezPointOne = { (BezierMagnitude * sin(output.SteerAngle) + output.BezPointZero.x), (BezierMagnitude * cos(wheelAngle) + output.BezPointZero.y) };
 			//janky solution until then:
-			//output.BezPointOne = { output.BezPointZero.x, output.BezPointZero.y + BezierMagnitude };
+			output.BezPointOne = { output.BezPointZero.x, output.BezPointZero.y + BezierMagnitude };
 			if (output.BezPointThree.x == output.BezPointTwo.x) {
 				output.BezPointTwo.y = output.BezPointThree.y - BezierMagnitude;
 			}

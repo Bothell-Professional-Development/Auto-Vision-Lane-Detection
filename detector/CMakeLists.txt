@@ -1,8 +1,6 @@
 cmake_minimum_required (VERSION 2.6)
 project (EBLaneDetector)
 
-set(LIBBuild FALSE CACHE BOOL "LIBBuild")
-
 # Create generated folder to hold SVM output
 set(SVM_DETECTOR_CONFIG             ${CONFIG_FOLDER}/SVM_Detector.cfg CACHE STRING "")
 set(DETECTOR_INPUT                  ${INPUT_FOLDER}/2.MP4 CACHE STRING "")
@@ -115,13 +113,8 @@ include_directories(
 #These directories contain the .lib files needed
 #link_directories(${PROJECT_SOURCE_DIR}/opencv3.3/${TARGET_OS}/libs)
 
-if(LIBBuild)
-    add_definitions(-DLIBBuild -DUNICODE -D_AFXDLL)
-    add_library(${PROJECT_NAME} SHARED ${${PROJECT_NAME}_SOURCE})
-else()
-	add_definitions(-DUNICODE)
-	add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SOURCE})
-endif()
+add_definitions(-DUNICODE)
+add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SOURCE})
 
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} common_lib)
@@ -175,25 +168,25 @@ else()
     # find_library(OCV_FFMPEG_LIBRARY opencv_ffmpeg hints ${LIBRARIES_DIR})
 endif()
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_CORE_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_CORE_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_CORE_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_CORE_LIBRARY_D})
 
 #target_link_libraries(${PROJECT_NAME} ${OCV_FFMPEG_LIBRARY})
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_HIGHGUI_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_HIGHGUI_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_HIGHGUI_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_HIGHGUI_LIBRARY_D})
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_IMGCODECS_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_IMGCODECS_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_IMGCODECS_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_IMGCODECS_LIBRARY_D})
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_IMGPROC_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_IMGPROC_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_IMGPROC_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_IMGPROC_LIBRARY_D})
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_ML_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_ML_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_ML_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_ML_LIBRARY_D})
 
-target_link_libraries(${PROJECT_NAME} optimized ${OCV_VIDEOIO_LIBRARY} "-static")
-target_link_libraries(${PROJECT_NAME} debug ${OCV_VIDEOIO_LIBRARY_D} "-static")
+target_link_libraries(${PROJECT_NAME} optimized ${OCV_VIDEOIO_LIBRARY})
+target_link_libraries(${PROJECT_NAME} debug ${OCV_VIDEOIO_LIBRARY_D})
 
 #target_link_libraries(${PROJECT_NAME} optimized ${OCV_FFMPEG_LIBRARY})
 #target_link_libraries(${PROJECT_NAME} debug ${OCV_FFMPEG_LIBRARY_D})
