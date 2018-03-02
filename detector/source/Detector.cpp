@@ -160,14 +160,15 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			output.timePF = (newTime - oldTime) / (CLOCKS_PER_SEC / 1000);
 			oldTime = newTime;
 			resize(input.frame, resizedImage, cv::Size(HORIZONTAL_RESOLUTION, VERTICAL_RESOLUTION));
+			output.outputMat = resizedImage;
 
 			cvtColor(resizedImage, resizedImage, CV_RGB2GRAY);
 			resizedImage.convertTo(resizedImage, CV_32FC1); //Grayscale
 			resizedImage /= 255;
 
 			//Only for visualization purposes. Should be removed from final product
-			resizedImage.convertTo(output.outputMat, CV_32FC3);
-			cvtColor(output.outputMat, output.outputMat, CV_GRAY2BGR);
+			//resizedImage.convertTo(output.outputMat, CV_32FC3);
+			//cvtColor(output.outputMat, output.outputMat, CV_GRAY2BGR);
 
 			// TESTING: Mark the Region Of Interest ROI (Green rectangle)
 			if (renderingOutput)
@@ -278,8 +279,8 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 
 
 
-			line(output.outputMat, leftLaneStartPoint, leftLaneEndPoint, cv::Scalar(0, 0, 1), 2, 8);
-			line(output.outputMat, rightLaneStartPoint, rightLaneEndPoint, cv::Scalar(1, 0, 0), 2, 8);
+			line(output.outputMat, leftLaneStartPoint, leftLaneEndPoint, cv::Scalar(0, 0, 255), 2, 8);
+			line(output.outputMat, rightLaneStartPoint, rightLaneEndPoint, cv::Scalar(255, 0, 0), 2, 8);
 			//debug - approximate idealized lane margins
 			if (renderingOutput)
 			{
@@ -492,12 +493,12 @@ void plotLanePoints(cv::Mat &resizedImage, std::vector<cv::Point> &leftLaneUnfil
 {
 	for (int i = 0; i < leftLaneUnfilteredPoints.size(); i++)
 	{
-		circle(resizedImage, leftLaneUnfilteredPoints[i], 3, cv::Scalar(0, 0, 1.0), 2, 8, 0);
+		circle(resizedImage, leftLaneUnfilteredPoints[i], 3, cv::Scalar(0, 0, 255), 2, 8, 0);
 	}
 
 	for (int i = 0; i < rightLaneUnfilteredPoints.size(); i++)
 	{
-		circle(resizedImage, rightLaneUnfilteredPoints[i], 3, cv::Scalar(1.0, 0, 0), 2, 8, 0);
+		circle(resizedImage, rightLaneUnfilteredPoints[i], 3, cv::Scalar(255, 0, 0), 2, 8, 0);
 	}
 }
 
@@ -505,12 +506,12 @@ void plotLanePoints2(cv::Mat &resizedImage, std::vector<cv::Point> &leftLaneUnfi
 {
 	for (int i = 0; i < leftLaneUnfilteredPoints.size(); i++)
 	{
-		circle(resizedImage, leftLaneUnfilteredPoints[i], 2, cv::Scalar(0, 0, 1.0), 1, 8, 0);
+		circle(resizedImage, leftLaneUnfilteredPoints[i], 2, cv::Scalar(0, 0, 255), 1, 8, 0);
 	}
 
 	for (int i = 0; i < rightLaneUnfilteredPoints.size(); i++)
 	{
-		circle(resizedImage, rightLaneUnfilteredPoints[i], 2, cv::Scalar(1.0, 0, 0), 1, 8, 0);
+		circle(resizedImage, rightLaneUnfilteredPoints[i], 2, cv::Scalar(255, 0, 0), 1, 8, 0);
 	}
 }
 
