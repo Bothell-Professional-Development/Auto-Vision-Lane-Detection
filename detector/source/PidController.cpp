@@ -13,15 +13,15 @@ double bezier_calc(float wheelAngle, cv::Point2f &PointZero, cv::Point2f &PointO
 	//deatils: en.wikipedia.org/wiki/B%C3%A9zier_curve
 	cv::Point2f Result = { 0, 0 };
 	//We're given 3 of the 4 points we need to do our calculations, so this last portion here is what we need to do to speculate on the final point.
-	PointOne = { (BezierMagnitude * sin(wheelAngle) + PointZero.x), (BezierMagnitude * cos(wheelAngle) + PointZero.y) };
+	PointOne = { (BezierMagnitude * cos(wheelAngle) + PointZero.x), (BezierMagnitude * sin(wheelAngle) + PointZero.y) };
 	//Properly scaling the magnitute of the point two, so it doesn't completely depend on the box height
 	if (PointTwo.y == PointThree.y) {
 		PointTwo.y = PointThree.y - BezierMagnitude;
 	}
 	else
 	{
-		PointTwo = { PointThree.x + BezierMagnitude * sin(atan2f(PointThree.y - PointTwo.y, PointThree.x - PointTwo.x)) ,
-			PointThree.y + BezierMagnitude * cos(atan2f(PointThree.y - PointTwo.y, PointThree.x - PointTwo.x)) };
+		PointTwo = { PointThree.x + BezierMagnitude * cos(atan2f(PointThree.y - PointTwo.y, PointThree.x - PointTwo.x)) ,
+			PointThree.y + BezierMagnitude * sin(atan2f(PointThree.y - PointTwo.y, PointThree.x - PointTwo.x)) };
 	}
 	
 	//setup some points that make math possible
