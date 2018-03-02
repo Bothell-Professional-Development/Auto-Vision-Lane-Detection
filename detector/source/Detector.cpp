@@ -308,23 +308,12 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			output.BezPointThree.y = (float)VERTICAL_RESOLUTION - output.BezPointThree.y;
 			
 			//Now properly scaling:
-			//Following line commented out until we have a way to pull in the wheel angle to this area.
-			//output.BezPointOne = { (BezierMagnitude * sin(output.SteerAngle) + output.BezPointZero.x), (BezierMagnitude * cos(wheelAngle) + output.BezPointZero.y) };
-			//janky solution until then:
-			output.BezPointOne = { output.BezPointZero.x, output.BezPointZero.y + BezierMagnitude };
-			//Scale point 2:
+			output.BezPointOne = { (BezierMagnitude * cos(output.SteerAngle) + output.BezPointZero.x), (BezierMagnitude * sin(output.SteerAngle) + output.BezPointZero.y) };
+
 			if (output.BezPointThree.x == output.BezPointTwo.x) {
 				output.BezPointTwo.y = output.BezPointThree.y - BezierMagnitude;
 			}
 			else {
-				//float intermediate_x;
-				//float intermediate_y;
-				//float atan_output;
-				//atan_output = atan2f(output.BezPointThree.y - output.BezPointTwo.y, output.BezPointThree.x - output.BezPointTwo.x);
-				//intermediate_x = BezierMagnitude * sin(atan_output);
-				//intermediate_y = BezierMagnitude * cos(atan_output);
-				//output.BezPointTwo = { output.BezPointTwo.x + intermediate_x, output.BezPointTwo.y + intermediate_y };
-
 				output.BezPointTwo = { output.BezPointThree.x - BezierMagnitude * cos(atan2f(output.BezPointThree.y - output.BezPointTwo.y, output.BezPointThree.x - output.BezPointTwo.x)) ,
 					output.BezPointThree.y - BezierMagnitude * sin(atan2f(output.BezPointThree.y - output.BezPointTwo.y, output.BezPointThree.x - output.BezPointTwo.x)) };
 			};
