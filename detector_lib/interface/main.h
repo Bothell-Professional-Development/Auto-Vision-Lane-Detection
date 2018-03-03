@@ -7,7 +7,6 @@
 class __declspec(dllexport) CExampleExport
 {
 	bool running = false;
-	double steerAngle = 0.0;
 	double OutputArray[steerCommandArraySize];
 	common_lib::ConfigFile cfgFile;
 	ObjectEvent<InputContainer> detection_input;

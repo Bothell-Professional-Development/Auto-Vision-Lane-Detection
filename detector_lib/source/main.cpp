@@ -99,17 +99,17 @@ double* CExampleExport::DetectLanes(unsigned char* bufferCopy, const unsigned in
 		waitKey(1);
 		if (m_simulatorInput)
 		{
-			steerAngle = pid->Calculate(400.0f, output.BezPointThree.x, dt);
+			output.SteerAngle = pid->Calculate(400.0f, output.BezPointThree.x, dt);
 		}
 		else
 		{
-			steerAngle = bezier_calc(steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
+			output.SteerAngle = bezier_calc(output.SteerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
 		}
 	}
 
 	if (m_simulatorInput)
 	{
-		return &steerAngle;
+		return &output.SteerAngle;
 	}
 	else
 	{
