@@ -158,6 +158,11 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 
 			//line(output.outputMat, cv::Point(dynamicCenterOfLanesXval, 0), cv::Point(dynamicCenterOfLanesXval, output.outputMat.rows - 1), cv::Scalar(200, 100, 0), 1, 8, 0);
 			output.timePF = (newTime - oldTime) / (CLOCKS_PER_SEC / 1000);
+			if (output.timePF)
+			{
+				output.timePF = 1;
+			}
+
 			oldTime = newTime;
 			resize(input.frame, resizedImage, cv::Size(HORIZONTAL_RESOLUTION, VERTICAL_RESOLUTION));
 			output.outputMat = resizedImage;
@@ -306,9 +311,11 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			output.BezPointOne.y = (float)VERTICAL_RESOLUTION - output.BezPointOne.y;
 			output.BezPointTwo.y = (float)VERTICAL_RESOLUTION - output.BezPointTwo.y;
 			output.BezPointThree.y = (float)VERTICAL_RESOLUTION - output.BezPointThree.y;
+
+			float steerAngle = (float)output.SteerAngle;
 			
 			//Now properly scaling:
-			output.BezPointOne = { (BezierMagnitude * cos(output.SteerAngle) + output.BezPointZero.x), (BezierMagnitude * sin(output.SteerAngle) + output.BezPointZero.y) };
+			output.BezPointOne = { (BezierMagnitude * cos(steerAngle) + output.BezPointZero.x), (BezierMagnitude * sin(steerAngle) + output.BezPointZero.y) };
 
 			if (output.BezPointThree.x == output.BezPointTwo.x) {
 				output.BezPointTwo.y = output.BezPointThree.y - BezierMagnitude;
