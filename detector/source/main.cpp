@@ -142,7 +142,6 @@ int main()
 	int droppedCycles = 0, caughtCycles = 0;
 	int curveProgress = 0;
 	const double curveProgressMax = 30;
-	double steerAngle = 0.0;
 	float steerAngleAvg = 0.0;
 	int avgSteps = 0;
 	double OutputArray[steerCommandArraySize] = { 0. };
@@ -174,7 +173,7 @@ int main()
 		{
 			fps = 1000 / output.timePF;
 			std::cout << "\nProcessing time/frame " << output.frameCounter << " : " << output.timePF << " (" << fps << "fps)" << 
-				" :: last angle: " << (steerAngle) << " progress: " << curveProgress << " steps" << " ( ";
+				" :: last angle: " << (output.SteerAngle) << " progress: " << curveProgress << " steps" << " ( ";
 			for (int i = 0; i < steerCommandArraySize; ++i) { std::cout << std::fixed << OutputArray[i] << " "; }
 			std::cout << ")" << "\n";
 
@@ -191,9 +190,9 @@ int main()
 			steerAngleAvg = 0;
 		}
 
-		steerAngle = set_steering_module(steerAngle);
-		steerAngle = bezier_calc(steerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
-		steerAngleAvg += (float)steerAngle;
+		output.SteerAngle = set_steering_module(output.SteerAngle);
+		output.SteerAngle = bezier_calc(output.SteerAngle, output.BezPointZero, output.BezPointOne, output.BezPointTwo, output.BezPointThree, OutputArray);
+		steerAngleAvg += (float)output.SteerAngle;
 	}
 
 	std::raise(SIGINT);
