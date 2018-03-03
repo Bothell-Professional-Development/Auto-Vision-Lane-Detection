@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.6)
-project (EBLaneDetectorLib)
+project (EBLaneDetector)
 
 if(WIN32)
     set(TARGET_OS "win32")

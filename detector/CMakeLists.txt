@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.6)
-project (EBLaneDetector)
+project (EBLaneDetectorApp)
 
 # Create generated folder to hold SVM output
 set(SVM_DETECTOR_CONFIG             ${CONFIG_FOLDER}/SVM_Detector.cfg CACHE STRING "")
