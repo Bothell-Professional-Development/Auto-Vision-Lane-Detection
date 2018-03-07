@@ -315,7 +315,9 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			float steerAngle = (float)output.SteerAngle;
 			
 			//Now properly scaling:
-			output.BezPointOne = { (BezierMagnitude * cos(steerAngle) + output.BezPointZero.x), (BezierMagnitude * sin(steerAngle) + output.BezPointZero.y) };
+			//commenting out for demo.
+			//output.BezPointOne = { (BezierMagnitude * cos(steerAngle) + output.BezPointZero.x), (BezierMagnitude * sin(steerAngle) + output.BezPointZero.y) };
+			output.BezPointOne = { output.BezPointZero.x , output.BezPointZero.y + BezierMagnitude };
 
 			if (output.BezPointThree.x == output.BezPointTwo.x) {
 				output.BezPointTwo.y = output.BezPointThree.y - BezierMagnitude;
