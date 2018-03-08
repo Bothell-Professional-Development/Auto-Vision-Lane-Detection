@@ -24,7 +24,7 @@ file(MAKE_DIRECTORY			${INPUT_FOLDER})
 			set(CONTENT "${CONTENT}\n${val}")
 		endforeach()
 
-		if(NOT EXISTS ${path} OR INIT_GENERATED)
+		if(NOT EXISTS ${path} OR INIT_GENERATED_FILES)
 			file(WRITE
 				${path}
 				"#pragma once\n"
@@ -43,7 +43,7 @@ file(MAKE_DIRECTORY			${INPUT_FOLDER})
 			set(CONTENT "${CONTENT}\n${val}")
 		endforeach()
 
-		if(NOT EXISTS ${path} OR INIT_GENERATED)
+		if(NOT EXISTS ${path} OR INIT_GENERATED_FILES)
 			file(WRITE
 				${path}
 				"NOTE: This is a generated file and will be overwritten upon CMake config.\n"
@@ -65,7 +65,7 @@ file(MAKE_DIRECTORY			${INPUT_FOLDER})
 			return()
 		endif()
 
-		if(EXISTS "${src}" AND (NOT EXISTS "${dst}" OR INIT_GENERATED))
+		if(EXISTS "${src}" AND (NOT EXISTS "${dst}" OR INIT_GENERATED_FILES))
 			file(COPY ${src} DESTINATION ${dst_dir})
 		endif()
 	endfunction(copy_if_missing)

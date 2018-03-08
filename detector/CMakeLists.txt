@@ -21,7 +21,7 @@ copy_if_missing(//USBTH1MS002/USSilo/Automotive/Public/Bothell_Professional_Deve
 copy_if_missing(//USBTH1MS002/USSilo/Automotive/Public/Bothell_Professional_Development/Auto-Vision-Lane-Detection    ${INPUT_FOLDER} sim_training.avi)
 
 create_generated_header(${PROJECT_SOURCE_DIR}/interface/generated.h
-    "#define CFG_FILE_PATH ./SVM_Detector.cfg"
+    "#define CFG_FILE_PATH \"./SVM_Detector.cfg\""
 )
 
 create_generated_config(${SVM_DETECTOR_CONFIG}

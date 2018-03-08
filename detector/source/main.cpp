@@ -98,6 +98,9 @@ int main()
 	//Load video
 	cv::VideoCapture cap;
 	std::string file = cfgFile.readValueOrDefault("DETECTOR_INPUT", "");
+
+	std::cout << "Video path " << file << "\n";
+
 	if (file.size() == 1 && isdigit(file.front()))
 	{
 		// For opening web camera
