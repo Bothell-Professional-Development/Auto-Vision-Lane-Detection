@@ -117,6 +117,10 @@ add_definitions(-DUNICODE)
 add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SOURCE})
 
 if(WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
+endif()
+
+if(WIN32)
     target_link_libraries(${PROJECT_NAME} common_lib)
 else()
     target_link_libraries(${PROJECT_NAME} common_lib pthread)

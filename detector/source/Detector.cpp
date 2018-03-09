@@ -23,6 +23,12 @@
 
 
 bool renderingOutput = false;
+bool gToggleButton_Grid = false;
+bool gToggleButton_Circle = false;
+bool gToggleButton_ROI  = false;
+bool gToggleButton_MarginLines = false;
+bool gToggleButton_Bezier = true;
+bool gToggleButton_DetectedLane = true;
 
 static int HORIZONTAL_RESOLUTION;
 static int VERTICAL_RESOLUTION;
@@ -176,7 +182,7 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			//cvtColor(output.outputMat, output.outputMat, CV_GRAY2BGR);
 
 			// TESTING: Mark the Region Of Interest ROI (Green rectangle)
-			if (renderingOutput)
+			if (gToggleButton_ROI)
 			{
 				cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_UPPER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_UPPER), cv::Scalar(0, 255, 0), 1, 8, 0);
 				cv::line(output.outputMat, cv::Point(HORIZONTAL_REGION_LEFT, VERTICAL_REGION_LOWER), cv::Point(HORIZONTAL_REGION_RIGHT, VERTICAL_REGION_LOWER), cv::Scalar(0, 255, 0), 1, 8, 0);
@@ -264,7 +270,7 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 				}
 			}
 
-			if (renderingOutput) {
+			if (gToggleButton_Circle) {
 				plotLanePoints2(output.outputMat, leftLaneUnfilteredPoints, rightLaneUnfilteredPoints);
 				plotLanePoints(output.outputMat, leftLaneFilteredPoints, rightLaneFilteredPoints);
 				cv::circle(output.outputMat, leftLaneStartPoint, 3, cv::Scalar(100, 0, 30), 2, 8, 0);
@@ -283,11 +289,13 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 			rightLaneEndPoint = getPointVectorAverage(rightLaneEndHistoryV);
 
 
-
-			line(output.outputMat, leftLaneStartPoint, leftLaneEndPoint, cv::Scalar(0, 0, 255), 2, 8);
-			line(output.outputMat, rightLaneStartPoint, rightLaneEndPoint, cv::Scalar(255, 0, 0), 2, 8);
+			if (gToggleButton_DetectedLane)
+			{
+				line(output.outputMat, leftLaneStartPoint, leftLaneEndPoint, cv::Scalar(0, 0, 255), 2, 8);
+				line(output.outputMat, rightLaneStartPoint, rightLaneEndPoint, cv::Scalar(255, 0, 0), 2, 8);
+			}
 			//debug - approximate idealized lane margins
-			if (renderingOutput)
+			if (gToggleButton_MarginLines)
 			{
 				line(output.outputMat, IDEAL_LEFT_LANE_MARKER_START, IDEAL_LEFT_LANE_MARKER_END, cv::Scalar(0, 127, 127), 1, 8);
 				line(output.outputMat, IDEAL_RIGHT_LANE_MARKER_START, IDEAL_RIGHT_LANE_MARKER_END, cv::Scalar(0, 127, 127), 1, 8);
@@ -356,7 +364,11 @@ void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>
 					+ 3 * pow(1 - ((n + 1) / 10), 2) * ((n + 1) / 10) * output.BezPointOne
 					+ 3 * (1 - ((n + 1) / 10)) * pow(((n + 1) / 10), 2) * output.BezPointTwo
 					+ pow(((n + 1) / 10), 3) * output.BezPointThree;
-				cv::line(output.outputMat, BezLineStart, BezLineEnd, cv::Scalar(255, 0, 5 + (n * 50)), 2, 8, 0);
+
+				if (gToggleButton_Bezier)
+				{
+					cv::line(output.outputMat, BezLineStart, BezLineEnd, cv::Scalar(255, 0, 5 + (n * 50)), 2, 8, 0);
+				}
 				//some debug code for stepping through to see the curve draw bit by bit:
 				//cv::imshow("test name", outputMat);
 				//cv::waitKey(0);
@@ -463,7 +475,7 @@ std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, 
 				histogramOfFeature = HOGHistogramWithTranspose(sampleBox);
 				responseSVM = svm->predict(histogramOfFeature);
 
-				if (responseSVM == 1 && renderingOutput)
+				if (responseSVM == 1 && gToggleButton_Grid)
 				{
 					//Mark the cell with a red border
 					cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
@@ -471,7 +483,8 @@ std::vector<cv::Point> getSVMPrediction(int horizontalStart, int horizontalEnd, 
 					cv::line(outputMat, cv::Point(c - 1 + BOX_WIDTH, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Scalar(0, 0, 255), 1, 8, 0);
 					cv::line(outputMat, cv::Point(c + 1, r - 1 + BOX_HEIGHT), cv::Point(c + 1, r + 1), cv::Scalar(0, 0, 255), 1, 8, 0);
 				}
-				if (responseSVM == -1 && renderingOutput)
+				if (responseSVM == -1 && gToggleButton_Grid)
+                //if (0) // We probably are not interested in non-matches
 				{
 					//Mark the cell with a red border
 					cv::line(outputMat, cv::Point(c + 1, r + 1), cv::Point(c - 1 + BOX_WIDTH, r + 1), cv::Scalar(color2forSVNBox, color3forSVNBox, 0), 1, 8, 0);

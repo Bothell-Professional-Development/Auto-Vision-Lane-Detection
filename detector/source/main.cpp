@@ -1,5 +1,8 @@
 // SVMTest.cpp : Defines the entry point for the console application.
 //
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -82,7 +85,7 @@ static void KillHandler(int signal)
 	*gRunning = false;
 }
 
-int main()
+int main(string msg)
 {
 	bool running = true;
 	gRunning = &running;
@@ -219,3 +222,176 @@ int main()
 	processingThread.join();
 	return 0;
 }
+
+#ifdef _WIN32
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+#define ID_BUTTON_GRID             1
+#define ID_BUTTON_CIRCLE           2
+#define ID_BUTTON_ROI              3
+#define ID_BUTTON_MARGIN_LINES     4
+#define ID_BUTTON_BEZIER           5
+#define ID_BUTTON_DETECTED_LANE    6
+
+HWND hndl_Grid = NULL;
+HWND hndl_Circle = NULL;
+HWND hndl_ROI = NULL;
+HWND hndl_MarginLines = NULL;
+HWND hndl_Bezier = NULL;
+HWND hndl_DetectedLane = NULL;
+
+
+LPWSTR getButtonString(int buttonId)
+{
+	string buttonStr = "";
+	switch (buttonId)
+	{
+	case ID_BUTTON_GRID:
+		buttonStr = gToggleButton_Grid ?        "Grid     ( ON  )" : "Grid     ( OFF )";
+		break;
+     
+	case ID_BUTTON_CIRCLE:
+		buttonStr = gToggleButton_Circle ?      "Circles  ( ON  )" : "Circles  ( OFF )";
+		break;
+
+	case ID_BUTTON_ROI:
+		buttonStr = gToggleButton_ROI ?         "ROI      ( ON  )" : "ROI      ( OFF )";
+		break;
+
+	case ID_BUTTON_BEZIER:
+		buttonStr = gToggleButton_Bezier ?      "Bezier   ( ON  )" : "Bezier   ( OFF )";
+		break;
+
+	case ID_BUTTON_MARGIN_LINES:
+		buttonStr = gToggleButton_MarginLines ?  "Margin Lines ( ON  )" : "Margin Lines ( OFF )";
+		break;
+
+	case ID_BUTTON_DETECTED_LANE:
+		buttonStr = gToggleButton_DetectedLane ? "Detected Lane ( ON  )" : "Detected Lane ( OFF )";
+		break;
+
+	default:
+		break;
+	}
+
+	char text[256] = {0};
+	strcpy(text, buttonStr.c_str());
+    static wchar_t wtext[256] = {0};
+	mbstowcs(wtext, text, strlen(text) + 1);//Plus null
+	LPWSTR ptr = wtext;
+	return ptr;
+}
+
+
+// WinMain: The Application Entry Point
+//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PWSTR nCmdLine, int nCmdShow)
+int WINAPI WinMain( HINSTANCE hInstance,    // HANDLE TO AN INSTANCE.  This is the "handle" to YOUR PROGRAM ITSELF.
+                    HINSTANCE hPrevInstance,// USELESS on modern windows (totally ignore hPrevInstance)
+                    LPSTR szCmdLine,        // Command line arguments.  similar to argv in standard C programs
+                    int iCmdShow )          // Start window maximized, minimized, etc.
+{
+	// Register the window class
+	const wchar_t CLASS_NAME[] = L"WindowClass";
+	WNDCLASS wc = {};
+	wc.lpfnWndProc = WindowProc;
+	wc.lpszClassName = CLASS_NAME;
+	wc.hInstance = hInstance;
+	RegisterClass(&wc);
+	// Create the window
+	HWND hwnd = CreateWindowEx(
+		0,
+		CLASS_NAME,
+		L"Display",
+		WS_OVERLAPPEDWINDOW,
+		CW_USEDEFAULT,
+		CW_USEDEFAULT, 
+		200,
+		400,
+		NULL, NULL, hInstance, NULL);
+
+	if (hwnd == 0)
+		return 0;
+
+	hndl_Grid = CreateWindow(L"BUTTON", getButtonString(ID_BUTTON_GRID), BS_TEXT | WS_CHILD | WS_VISIBLE, 10, 10, 150, 40, hwnd, (HMENU)ID_BUTTON_GRID, hInstance, NULL);
+	hndl_Circle = CreateWindow(L"BUTTON", getButtonString(ID_BUTTON_CIRCLE), BS_TEXT | WS_CHILD | WS_VISIBLE,   10, 60, 150, 40, hwnd, (HMENU)ID_BUTTON_CIRCLE, hInstance, NULL);
+	hndl_ROI =    CreateWindow(L"BUTTON", getButtonString(ID_BUTTON_ROI), BS_TEXT | WS_CHILD | WS_VISIBLE,   10, 110, 150, 40, hwnd, (HMENU)ID_BUTTON_ROI, hInstance, NULL);
+	hndl_Bezier = CreateWindow(L"BUTTON", getButtonString(ID_BUTTON_BEZIER), BS_TEXT | WS_CHILD | WS_VISIBLE,   10, 160, 150, 40, hwnd, (HMENU)ID_BUTTON_BEZIER, hInstance, NULL);
+	hndl_MarginLines =   CreateWindow(L"BUTTON", getButtonString(ID_BUTTON_MARGIN_LINES), BS_TEXT | WS_CHILD | WS_VISIBLE,   10, 210, 150, 40, hwnd, (HMENU)ID_BUTTON_MARGIN_LINES, hInstance, NULL);
+	hndl_DetectedLane = CreateWindow(L"BUTTON", getButtonString(ID_BUTTON_DETECTED_LANE), BS_TEXT | WS_CHILD | WS_VISIBLE, 10, 260, 150, 40, hwnd, (HMENU)ID_BUTTON_DETECTED_LANE, hInstance, NULL);
+
+
+	// Show the window
+	ShowWindow(hwnd, iCmdShow);
+	iCmdShow = 1;
+
+	std::thread t1(main, "hello");
+
+	// The Message loop
+	MSG msg = {};
+	while (GetMessage(&msg, NULL, 0, 0))
+	{
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	return 0;
+}
+// Window Procedure function
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_DESTROY:PostQuitMessage(0); return 0;
+	case WM_PAINT:
+	{
+		PAINTSTRUCT ps;
+		HDC hdc = BeginPaint(hwnd, &ps);
+		FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW + 5));
+		EndPaint(hwnd, &ps);
+	}return 0;
+
+	case WM_COMMAND:
+	{
+		if (LOWORD (wParam) == ID_BUTTON_GRID)
+		{
+			gToggleButton_Grid = gToggleButton_Grid ? false : true;
+			::SetWindowText(hndl_Grid, getButtonString(ID_BUTTON_GRID));
+			
+		}
+		else if (LOWORD(wParam) == ID_BUTTON_CIRCLE)
+		{
+			gToggleButton_Circle = gToggleButton_Circle ? false : true;
+			::SetWindowText(hndl_Circle, getButtonString(ID_BUTTON_CIRCLE));
+		}
+		else if (LOWORD(wParam) == ID_BUTTON_ROI)
+		{
+			gToggleButton_ROI = gToggleButton_ROI ? false : true;
+			::SetWindowText(hndl_ROI, getButtonString(ID_BUTTON_ROI));
+		}
+		else if (LOWORD(wParam) == ID_BUTTON_BEZIER)
+		{
+			gToggleButton_Bezier = gToggleButton_Bezier ? false : true;
+			::SetWindowText(hndl_Bezier, getButtonString(ID_BUTTON_BEZIER));
+		}
+		else if (LOWORD(wParam) == ID_BUTTON_MARGIN_LINES)
+		{
+			gToggleButton_MarginLines = gToggleButton_MarginLines ? false : true;
+			::SetWindowText(hndl_MarginLines, getButtonString(ID_BUTTON_MARGIN_LINES));
+		}
+		else if (LOWORD(wParam) == ID_BUTTON_DETECTED_LANE)
+		{
+			gToggleButton_DetectedLane = gToggleButton_DetectedLane ? false : true;
+			::SetWindowText(hndl_DetectedLane, getButtonString(ID_BUTTON_DETECTED_LANE));
+		}		
+
+	}return 0;
+
+	case WM_CLOSE:
+	{
+		//if (MessageBox(hwnd, L"Do you want to exit?", L"EXIT", MB_OKCANCEL) == IDOK)
+		DestroyWindow(hwnd);
+	}return 0;
+	}
+	return DefWindowProc(hwnd, uMsg, wParam, lParam); // Default Message Handling
+}
+#endif

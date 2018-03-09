@@ -8,6 +8,16 @@
 #include "ConfigFile.h"
 #include "proj.h"
 
+
+// Very hacky stuff
+extern bool gToggleButton_Grid;
+extern bool gToggleButton_Circle;
+extern bool gToggleButton_ROI;
+extern bool gToggleButton_MarginLines;
+extern bool gToggleButton_Bezier;
+extern bool gToggleButton_DetectedLane;
+
+
 void FrameProcessor(common_lib::ConfigFile& cfgFile, ObjectEvent<InputContainer>& process_input, ObjectEvent<OutputContainer>& process_output, bool &running);
 
 cv::Mat HOGHistogramWithTranspose(const cv::Mat& currentFrame);  //Used for testing. Without transpose is used for training
