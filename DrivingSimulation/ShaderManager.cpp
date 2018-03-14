@@ -5,6 +5,7 @@
 ShaderManager::ShaderManager() :
     m_colorShader(NULL),
     m_lightShader(NULL),
+    m_SkyDomeShader(NULL),
     m_textShader(NULL),
     m_textureShader(NULL){}
 ShaderManager::ShaderManager(const ShaderManager& other){}
@@ -23,6 +24,12 @@ bool ShaderManager::Initialize(ID3D11Device* device,
         success = static_cast<TextureShader*>(m_lightShader)->Initialize(device,
                                                                          samplerFilteringType,
                                                                          maxAnisotropy);
+    }
+
+    if(success)
+    {
+        m_SkyDomeShader = new SkyDomeShader();
+        success = m_SkyDomeShader->Initialize(device);
     }
 
     if(success)
@@ -58,6 +65,13 @@ void ShaderManager::Shutdown()
         m_lightShader->Shutdown();
         delete m_lightShader;
         m_lightShader = NULL;
+    }
+
+    if(m_SkyDomeShader)
+    {
+        m_SkyDomeShader->Shutdown();
+        delete m_SkyDomeShader;
+        m_SkyDomeShader = NULL;
     }
 
     if(m_textShader)
@@ -115,6 +129,24 @@ bool ShaderManager::RenderWithLightShader(ID3D11DeviceContext* context,
                                  specularPower);
 }
 
+bool ShaderManager::RenderWithSkyDomeShader(ID3D11DeviceContext* context,
+                                            const unsigned int indexCount,
+                                            const DirectX::XMMATRIX& world,
+                                            const DirectX::XMMATRIX& view,
+                                            const DirectX::XMMATRIX& projection,
+                                            const DirectX::XMFLOAT4 apexColor,
+                                            const DirectX::XMFLOAT4 centerColor,
+                                            const float radius)
+{
+    return m_SkyDomeShader->Render(context,
+                                   indexCount,
+                                   world,
+                                   view,
+                                   projection,
+                                   apexColor,
+                                   centerColor,
+                                   radius);
+}
 bool ShaderManager::RenderWithTextShader(ID3D11DeviceContext* context,
                                          const unsigned int indexCount,
                                          const DirectX::XMMATRIX& world,

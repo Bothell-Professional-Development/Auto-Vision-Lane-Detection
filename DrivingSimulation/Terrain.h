@@ -24,12 +24,33 @@ public:
                     const unsigned int depth,
                     const DirectX::XMFLOAT4 color);
 
+    bool Initialize(ID3D11Device* device,
+                    ID3D11DeviceContext* context,
+                    const char* textureFilename,
+                    const Texture::TextureImageFormat imageFormat,
+                    const char* heightMapFilename,
+                    const Texture::TextureImageFormat heightMapFormat);
+
+    bool Initialize(ID3D11Device* device,
+                    const DirectX::XMFLOAT4 color,
+                    const char* heightMapFilename,
+                    const Texture::TextureImageFormat heightMapFormat);
+
     virtual void Shutdown();
 
 private:
+    bool LoadHeightMap(const char* heightMapFilename,
+                       const Texture::TextureImageFormat heightMapFormat);
+
+    bool LoadTargaHeightMap(const char* heightMapFilename);
+
+    //void CalculateNormals();
+
     virtual bool InitializeBuffers(ID3D11Device* device);
 
-    int m_width;
-    int m_depth;
+    unsigned int m_width;
+    unsigned int m_depth;
+
+    float* m_heightMap;
 };
 #pragma once

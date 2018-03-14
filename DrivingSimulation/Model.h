@@ -35,10 +35,15 @@ public:
 
     const DirectX::XMFLOAT3& GetPosition() const;
     const DirectX::XMFLOAT3& GetRotation() const;
+    const DirectX::XMFLOAT3& GetBoundingBoxMinPoint() const;
+    const DirectX::XMFLOAT3& GetBoundingBoxMaxPoint() const;
+    const DirectX::XMFLOAT3 GetBoundingBoxDimensions() const;
 
     const unsigned int& GetIndexCount() const ;
     ID3D11ShaderResourceView* GetTexture() const;
     const DirectX::XMFLOAT4& GetColor() const;
+
+    void ReverseFaces(ID3D11Device* device);
 
     virtual void Shutdown();
     virtual void Render(ID3D11DeviceContext* context);
@@ -76,13 +81,15 @@ protected:
     bool LoadModel(const char* modelFilename);
 
     bool AddVertex(const unsigned int vIndex,
-                           const unsigned int tIndex,
-                           const unsigned int nIndex,
-                           const std::vector<DirectX::XMFLOAT3>& vertices,
-                           const std::vector<DirectX::XMFLOAT2>& textureCoords,
-                           const std::vector<DirectX::XMFLOAT3>& normals);
+                   const unsigned int tIndex,
+                   const unsigned int nIndex,
+                   const std::vector<DirectX::XMFLOAT3>& vertices,
+                   const std::vector<DirectX::XMFLOAT2>& textureCoords,
+                   const std::vector<DirectX::XMFLOAT3>& normals);
 
     void ReleaseModel();
+
+    void UpdateBoundingBox();
 
     virtual bool InitializeBuffers(ID3D11Device* device);
 
@@ -95,6 +102,8 @@ protected:
     ID3D11Buffer* m_indexBuffer;
     ID3D11Buffer* m_vertexBuffer;
     DirectX::XMFLOAT4 m_color;
+    DirectX::XMFLOAT3 m_boundingBoxMinPoint;
+    DirectX::XMFLOAT3 m_boundingBoxMaxPoint;
     void* m_vertices;
     unsigned int* m_indices;
 };

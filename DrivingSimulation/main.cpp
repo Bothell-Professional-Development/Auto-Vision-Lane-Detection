@@ -51,6 +51,8 @@ void LaneDetectionWorkLoop(DrivingSimulation* simulation,
     Timer t;
     t.Initialize();
 
+    std::vector<float> steeringCorrections;
+
     while(true)
     {
         //std::cout << "Workloop executed!\n" << std::endl;
@@ -60,14 +62,30 @@ void LaneDetectionWorkLoop(DrivingSimulation* simulation,
             {
                 simulation->GetTrackRasterCopy(rgbBuffer);
 
-                float steeringCorrection = *detector.DetectLanes(rgbBuffer,
-                                                                 simulation->GetTrackCapture()->GetHeight(),
-                                                                 simulation->GetTrackCapture()->GetWidth(),
-                                                                 t.GetTimeSeconds());
+                float steeringCorrection = static_cast<float>(*detector.DetectLanes(rgbBuffer,
+                                                                                    simulation->GetTrackCapture()->GetHeight(),
+                                                                                    simulation->GetTrackCapture()->GetWidth(),
+                                                                                    t.GetTimeSeconds()));
+
+                steeringCorrections.push_back(steeringCorrection);
+                
+                if(steeringCorrections.size() > 5)
+                {
+                    steeringCorrections.erase(steeringCorrections.begin());
+                }
+
 
                 if(simulation->GetDrivingMovementControls())
                 {
-                    simulation->GetDrivingMovementControls()->SetDesiredSteeringPosition(DirectX::XMConvertToRadians(-steeringCorrection));
+                    float average = 0.0f;
+
+                    for(float f : steeringCorrections)
+                    {
+                        average += f;
+                    }
+
+                    simulation->GetDrivingMovementControls()->SetDesiredSteeringPosition(DirectX::XMConvertToRadians(-average / steeringCorrections.size()));
+                    //simulation->GetDrivingMovementControls()->SetDesiredSteeringPosition(DirectX::XMConvertToRadians(-steeringCorrection));
                     //simulation->GetDrivingMovementControls()->SetDesiredSteeringPosition(-steeringCorrection);
                 }
                 else
@@ -127,13 +145,13 @@ int WINAPI WinMain(HINSTANCE instance,
                                                    D3D11_FILTER_ANISOTROPIC,
                                                    8);
 
-    std::thread workloop(LaneDetectionWorkLoop, &composition, p, i, d);
-    workloop.detach();
-
     int exitCode = 0;
 
     if (result)
     {
+        std::thread workloop(LaneDetectionWorkLoop, &composition, p, i, d);
+        workloop.detach();
+
         System::GetInstance().Run();
     }
     else

@@ -43,6 +43,8 @@ public:
     void SetBackBufferAsRenderTarget();
     void EnableAlphaBlending();
     void DisableAlphaBlending();
+    void EnableZBuffer();
+    void DisableZBuffer();
 
     ID3D11Device* GetDevice();
     ID3D11DeviceContext* GetDeviceContext();
@@ -90,7 +92,8 @@ private:
                            const DXGI_FORMAT format,
                            const D3D11_USAGE usage);
 
-    bool CreateDepthStencilState(const bool depthEnable,
+    bool CreateDepthStencilState(ID3D11DepthStencilState* depthStencilState,
+                                 const bool depthEnable,
                                  const bool stencilEnable,
                                  const unsigned char stencilReadMask,
                                  const unsigned char stencilWriteMask,
@@ -138,6 +141,7 @@ private:
     ID3D11RenderTargetView* m_renderTargetView;
     ID3D11Texture2D* m_depthStencilBuffer;
     ID3D11DepthStencilState* m_depthStencilState;
+    ID3D11DepthStencilState* m_depthDisabledStencilState;
     ID3D11DepthStencilView* m_depthStencilView;
     ID3D11RasterizerState* m_rasterState;
     ID3D11BlendState* m_alphaEnabledBlendingState;

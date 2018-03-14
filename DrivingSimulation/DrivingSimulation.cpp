@@ -9,6 +9,7 @@ DrivingSimulation::DrivingSimulation() :
     m_trackCapture(NULL),
     m_steeringWheel(NULL),
     m_light(NULL),
+    m_skyDome(NULL),
     m_terrain(NULL),
     m_track(NULL),
     m_debugDisplay(NULL){}
@@ -72,15 +73,29 @@ bool DrivingSimulation::Initialize(const bool fullScreen,
     m_light->SetDiffuseColor(1.0f, 1.0f, 1.0f, 1.0f);
     m_light->SetDirection(0.3f, -1.0f, 0.3f);
     m_light->SetSpecularColor(1.0f, 1.0f, 1.0f, 1.0f);
-    m_light->SetSpecularPower(35.0f);
+    m_light->SetSpecularPower(100.0f);
+
+    m_skyDome = new SkyDome();
+    m_skyDome->Initialize(m_d3dInterface->GetDevice(),
+                          "./Models/sphere.obj",
+                          DirectX::XMFLOAT4(0.0f, 0.0f, 0.9f, 1.0f),
+                          DirectX::XMFLOAT4(0.6f, 0.6f, 0.9f, 1.0f));
+    m_skyDome->ReverseFaces(m_d3dInterface->GetDevice());
 
     m_terrain = new Terrain();
+    //success = m_terrain->Initialize(m_d3dInterface->GetDevice(),
+    //                                m_d3dInterface->GetDeviceContext(),
+    //                                1000,
+    //                                1000,
+    //                                "./Textures/grass.tga",
+    //                                Texture::TextureImageFormat::TARGA);
     success = m_terrain->Initialize(m_d3dInterface->GetDevice(),
                                     m_d3dInterface->GetDeviceContext(),
-                                    1000,
-                                    1000,
                                     "./Textures/grass.tga",
+                                    Texture::TextureImageFormat::TARGA,
+                                    "./Textures/height_map.tga",
                                     Texture::TextureImageFormat::TARGA);
+
     //Texture::ConvertTargaBgrToRgb("./Textures/brick.tga",
     //                              "./Textures/brick2.tga");
     //Texture::ConvertTargaColorToAlpha("./Textures/steering_wheel2.tga",
@@ -157,6 +172,13 @@ void DrivingSimulation::Shutdown()
         m_light = NULL;
     }
 
+    if(m_skyDome)
+    {
+        m_skyDome->Shutdown();
+        delete m_skyDome;
+        m_skyDome = NULL;
+    }
+
     if(m_terrain)
     {
         m_terrain->Shutdown();
@@ -193,6 +215,10 @@ bool DrivingSimulation::Frame()
     success &= m_debugDisplay->Frame(m_d3dInterface->GetDeviceContext(),
                                      *m_player->GetPosition(),
                                      *m_player->GetMovementControls());
+
+    m_skyDome->SetPosition(m_player->GetPosition()->GetPosition().x,
+                           m_player->GetPosition()->GetPosition().y,
+                           m_player->GetPosition()->GetPosition().z);
 
     m_player->Frame(m_timer->GetTimeSeconds());
 
@@ -232,7 +258,7 @@ bool DrivingSimulation::SetTrackCaptureResolution(const unsigned int width,
 
 bool DrivingSimulation::Render()
 {
-    m_d3dInterface->BeginScene(0.2f, 0.2f, 1.0f, 0.0f);
+    m_d3dInterface->BeginScene(0.0f, 0.0f, 0.0f, 0.0f);
     bool success = RenderScene();
     m_d3dInterface->EndScene();
 
@@ -253,68 +279,88 @@ bool DrivingSimulation::RenderScene()
 
     ID3D11DeviceContext* context = m_d3dInterface->GetDeviceContext();
 
-    m_terrain->Render(context);
+    m_d3dInterface->DisableZBuffer();
+    m_skyDome->Render(context);
 
-    if(FAILED(m_shaderManager->RenderWithLightShader(context,
-                                                     m_terrain->GetIndexCount(),
-                                                     world,
-                                                     view,
-                                                     projection,
-                                                     m_terrain->GetTexture(),
-                                                     m_light->GetDirection(),
-                                                     camera->GetPosition(),
-                                                     m_light->GetAmbientColor(),
-                                                     m_light->GetDiffuseColor(),
-                                                     m_light->GetSpecularColor(),
-                                                     m_light->GetSpecularPower())))
+    if(!m_shaderManager->RenderWithSkyDomeShader(context,
+                                                 m_skyDome->GetIndexCount(),
+                                                 world * DirectX::XMMatrixTranslation(m_skyDome->GetPosition().x,
+                                                                                      m_skyDome->GetPosition().y,
+                                                                                      m_skyDome->GetPosition().z),
+                                                 view,
+                                                 projection,
+                                                 m_skyDome->GetApexColor(),
+                                                 m_skyDome->GetColor(),
+                                                 m_skyDome->GetBoundingBoxDimensions().x / 2))
     {
         success = false;
+    }
+    m_d3dInterface->EnableZBuffer();
+
+    if(success)
+    {
+        m_terrain->Render(context);
+
+        if(!m_shaderManager->RenderWithLightShader(context,
+                                                   m_terrain->GetIndexCount(),
+                                                   world,
+                                                   view,
+                                                   projection,
+                                                   m_terrain->GetTexture(),
+                                                   m_light->GetDirection(),
+                                                   camera->GetPosition(),
+                                                   m_light->GetAmbientColor(),
+                                                   m_light->GetDiffuseColor(),
+                                                   m_light->GetSpecularColor(),
+                                                   m_light->GetSpecularPower()))
+        {
+            success = false;
+        }
     }
 
     if(success)
     {
         m_track->Render(context);
 
-        if(FAILED(m_shaderManager->RenderWithLightShader(context,
-                                                         m_track->GetIndexCount(),
-                                                         world,
-                                                         view,
-                                                         projection,
-                                                         m_track->GetTexture(),
-                                                         m_light->GetDirection(),
-                                                         camera->GetPosition(),
-                                                         m_light->GetAmbientColor(),
-                                                         m_light->GetDiffuseColor(),
-                                                         m_light->GetSpecularColor(),
-                                                         m_light->GetSpecularPower())))
+        if(!m_shaderManager->RenderWithLightShader(context,
+                                                   m_track->GetIndexCount(),
+                                                   world,
+                                                   view,
+                                                   projection,
+                                                   m_track->GetTexture(),
+                                                   m_light->GetDirection(),
+                                                   camera->GetPosition(),
+                                                   m_light->GetAmbientColor(),
+                                                   m_light->GetDiffuseColor(),
+                                                   m_light->GetSpecularColor(),
+                                                   m_light->GetSpecularPower()))
         {
             success = false;
         }
     }
 
     m_d3dInterface->EnableAlphaBlending();
-    success &= m_debugDisplay->Render(context,
-                                      m_shaderManager,
-                                      world,
-                                      camera->GetBaseViewMatrix(),
-                                      ortho);
-    m_d3dInterface->DisableAlphaBlending();
+    if(success)
+    {
+        success &= m_debugDisplay->Render(context,
+                                          m_shaderManager,
+                                          world,
+                                          camera->GetBaseViewMatrix(),
+                                          ortho);
 
-    m_d3dInterface->EnableAlphaBlending();
+        m_steeringWheel->Render(context);
 
-    m_steeringWheel->Render(context);
+        DirectX::XMFLOAT3 steeringWheelPosition = m_steeringWheel->GetPosition();
 
-    DirectX::XMFLOAT3 steeringWheelPosition = m_steeringWheel->GetPosition();
-
-    m_shaderManager->RenderWithTextureShader(context,
-                                             m_steeringWheel->GetIndexCount(),
-                                             world * DirectX::XMMatrixRotationZ(-static_cast<DrivingMovementControls*>(m_player->GetMovementControls())->GetSteeringPosition()),
-                                             camera->GetBaseViewMatrix() * DirectX::XMMatrixTranslation(steeringWheelPosition.x,
-                                                                                                        steeringWheelPosition.y,
-                                                                                                        steeringWheelPosition.z),
-                                             ortho,
-                                             m_steeringWheel->GetTexture());
-
+        success &= m_shaderManager->RenderWithTextureShader(context,
+                                                            m_steeringWheel->GetIndexCount(),
+                                                            world * DirectX::XMMatrixRotationZ(-static_cast<DrivingMovementControls*>(m_player->GetMovementControls())->GetSteeringPosition()),
+                                                            camera->GetBaseViewMatrix() * DirectX::XMMatrixTranslation(steeringWheelPosition.x,
+                                                                                                                       steeringWheelPosition.y,
+                                                                                                                       steeringWheelPosition.z),
+                                                            ortho,
+                                                            m_steeringWheel->GetTexture());
+    }
     m_d3dInterface->DisableAlphaBlending();
 
     //m_d3dInterface->EnableAlphaBlending();

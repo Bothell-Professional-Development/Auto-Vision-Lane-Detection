@@ -11,6 +11,20 @@ public:
         UNKNOWN
     };
 
+    struct TargaHeader
+    {
+        unsigned char idLength;
+        unsigned char colorMapType;
+        unsigned char imageType;
+        unsigned char colorMapSpecification[5];
+        unsigned short xOrigin;
+        unsigned short yOrigin;
+        unsigned short width;
+        unsigned short height;
+        unsigned char bpp;
+        unsigned char imageDescriptor;
+    };
+
     Texture();
     Texture(const Texture& other);
     ~Texture();
@@ -54,19 +68,5 @@ protected:
     ID3D11ShaderResourceView* m_textureView;
 
 private:
-    struct TargaHeader
-    {
-        unsigned char idLength;
-        unsigned char colorMapType;
-        unsigned char imageType;
-        unsigned char colorMapSpecification[5];
-        unsigned short xOrigin;
-        unsigned short yOrigin;
-        unsigned short width;
-        unsigned short height;
-        unsigned char bpp;
-        unsigned char imageDescriptor;
-    };
-
     bool LoadTargaTexture(const char* filename);
 };

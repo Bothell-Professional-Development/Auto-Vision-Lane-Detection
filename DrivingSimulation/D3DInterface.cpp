@@ -10,6 +10,7 @@ D3DInterface::D3DInterface() :
     m_renderTargetView(NULL),
     m_depthStencilBuffer(NULL),
     m_depthStencilState(NULL),
+    m_depthDisabledStencilState(NULL),
     m_depthStencilView(NULL),
     m_rasterState(NULL),
     m_alphaEnabledBlendingState(NULL),
@@ -57,7 +58,7 @@ bool D3DInterface::Initialize(const bool fullscreen,
     DXGI_MODE_DESC* displayModeList = NULL;
 
     //get refresh rate for resolution
-    if(success)
+    if(success && fullscreen)
     {
         //TODO: make configurable?
         if(FAILED(adapterOutput->GetDisplayModeList(DXGI_FORMAT_R8G8B8A8_UNORM,
@@ -83,30 +84,33 @@ bool D3DInterface::Initialize(const bool fullscreen,
                 {
                     for(unsigned int i = 0; i < numModes; ++i)
                     {
-                        if(fullscreen)
-                        {
-                            if(displayModeList[i].Width == GetSystemMetrics(SM_CXSCREEN) &&
-                               displayModeList[i].Height == GetSystemMetrics(SM_CYSCREEN))
+                        //if(fullscreen)
+                        //{
+                            //if(displayModeList[i].Width == GetSystemMetrics(SM_CXSCREEN) &&
+                            //   displayModeList[i].Height == GetSystemMetrics(SM_CYSCREEN))
+                            //{
+                            if(displayModeList[i].Width == screenWidth &&
+                                displayModeList[i].Height == screenHeight)
                             {
                                 numerator = displayModeList[i].RefreshRate.Numerator;
                                 denominator = displayModeList[i].RefreshRate.Denominator;
                                 break;
                             }
-                        }
-                        else
-                        {
-                            if(displayModeList[i].Width == screenWidth && displayModeList[i].Height == screenHeight)
-                            {
-                                numerator = displayModeList[i].RefreshRate.Numerator;
-                                denominator = displayModeList[i].RefreshRate.Denominator;
-                                break;
-                            }
-                        }
+                        //}
+                        //else
+                        //{
+                        //    if(displayModeList[i].Width == screenWidth && displayModeList[i].Height == screenHeight)
+                        //    {
+                        //        numerator = displayModeList[i].RefreshRate.Numerator;
+                        //        denominator = displayModeList[i].RefreshRate.Denominator;
+                        //        break;
+                        //    }
+                        //}
                     }
 
                     if(numerator == 0 || denominator == 0)
                     {
-                        System::GetInstance().ShowMessage(L"D3DInterface::Initialize: Windowed resolution not supported",
+                        System::GetInstance().ShowMessage(L"D3DInterface::Initialize: Fullscreen resolution not supported",
                                                           L"Error");
                         success = false;
                     }
@@ -207,29 +211,41 @@ bool D3DInterface::Initialize(const bool fullscreen,
                              DXGI_FORMAT_D24_UNORM_S8_UINT,
                              D3D11_USAGE_DEFAULT))
         {
-            if(CreateDepthStencilState(true,
-                                       true,
-                                       0xFF,
-                                       0xFF,
-                                       D3D11_DEPTH_WRITE_MASK_ALL,
-                                       D3D11_COMPARISON_LESS,
-                                       D3D11_COMPARISON_ALWAYS,
-                                       D3D11_COMPARISON_ALWAYS,
-                                       D3D11_STENCIL_OP_KEEP,
-                                       D3D11_STENCIL_OP_INCR,
-                                       D3D11_STENCIL_OP_KEEP,
-                                       D3D11_STENCIL_OP_KEEP,
-                                       D3D11_STENCIL_OP_INCR,
-                                       D3D11_STENCIL_OP_KEEP))
-            {
-                success = CreateDepthStencilView(0,
-                                                 DXGI_FORMAT_D24_UNORM_S8_UINT,
-                                                 D3D11_DSV_DIMENSION_TEXTURE2D);
-            }
-            else
-            {
-                success = false;
-            }
+            success &= success && CreateDepthStencilState(m_depthStencilState,
+                                                          true,
+                                                          true,
+                                                          0xFF,
+                                                          0xFF,
+                                                          D3D11_DEPTH_WRITE_MASK_ALL,
+                                                          D3D11_COMPARISON_LESS,
+                                                          D3D11_COMPARISON_ALWAYS,
+                                                          D3D11_COMPARISON_ALWAYS,
+                                                          D3D11_STENCIL_OP_KEEP,
+                                                          D3D11_STENCIL_OP_INCR,
+                                                          D3D11_STENCIL_OP_KEEP,
+                                                          D3D11_STENCIL_OP_KEEP,
+                                                          D3D11_STENCIL_OP_INCR,
+                                                          D3D11_STENCIL_OP_KEEP);
+
+            success &= success && CreateDepthStencilState(m_depthDisabledStencilState,
+                                                          false,
+                                                          true,
+                                                          0xFF,
+                                                          0xFF,
+                                                          D3D11_DEPTH_WRITE_MASK_ALL,
+                                                          D3D11_COMPARISON_LESS,
+                                                          D3D11_COMPARISON_ALWAYS,
+                                                          D3D11_COMPARISON_ALWAYS,
+                                                          D3D11_STENCIL_OP_KEEP,
+                                                          D3D11_STENCIL_OP_INCR,
+                                                          D3D11_STENCIL_OP_KEEP,
+                                                          D3D11_STENCIL_OP_KEEP,
+                                                          D3D11_STENCIL_OP_INCR,
+                                                          D3D11_STENCIL_OP_KEEP);
+
+            success = success && CreateDepthStencilView(0,
+                                                        DXGI_FORMAT_D24_UNORM_S8_UINT,
+                                                        D3D11_DSV_DIMENSION_TEXTURE2D);
         }
         else
         {
@@ -296,6 +312,7 @@ bool D3DInterface::Initialize(const bool fullscreen,
 
     return success;
 }
+
 void D3DInterface::Shutdown()
 {
     if(m_swapChain)
@@ -331,6 +348,12 @@ void D3DInterface::Shutdown()
     {
         m_depthStencilState->Release();
         m_depthStencilState = NULL;
+    }
+
+    if(m_depthDisabledStencilState)
+    {
+        m_depthDisabledStencilState->Release();
+        m_depthDisabledStencilState = NULL;
     }
 
     if(m_depthStencilView)
@@ -420,6 +443,16 @@ void D3DInterface::DisableAlphaBlending()
     m_deviceContext->OMSetBlendState(m_alphaDisabledBlendingState,
                                      blendFactor,
                                      0xffffffff);
+}
+
+void D3DInterface::EnableZBuffer()
+{
+    m_deviceContext->OMSetDepthStencilState(m_depthStencilState, 1);
+}
+
+void D3DInterface::DisableZBuffer()
+{
+    m_deviceContext->OMSetDepthStencilState(m_depthDisabledStencilState, 1);
 }
 
 ID3D11Device* D3DInterface::GetDevice(){ return m_device; }
@@ -695,7 +728,8 @@ bool D3DInterface::CreateDepthStencilView(const unsigned int mipSlice,
     return success;
 }
 
-bool D3DInterface::CreateDepthStencilState(const bool depthEnable,
+bool D3DInterface::CreateDepthStencilState(ID3D11DepthStencilState* depthStencilState,
+                                           const bool depthEnable,
                                            const bool stencilEnable,
                                            const unsigned char stencilReadMask,
                                            const unsigned char stencilWriteMask,
@@ -737,7 +771,7 @@ bool D3DInterface::CreateDepthStencilState(const bool depthEnable,
 
     if(SUCCEEDED(m_device->CreateDepthStencilState(&depthStencilDesc, &m_depthStencilState)))
     {
-        m_deviceContext->OMSetDepthStencilState(m_depthStencilState, 1);
+        m_deviceContext->OMSetDepthStencilState(depthStencilState, 1);
     }
     else
     {

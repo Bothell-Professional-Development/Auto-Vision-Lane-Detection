@@ -2,21 +2,13 @@
 
 #include "ColorShader.h"
 #include "LightShader.h"
+#include "SkyDomeShader.h"
 #include "TextShader.h"
 #include "TextureShader.h"
 
 class ShaderManager
 {
 public:
-    enum ShaderType
-    {
-        COLOR_SHADER = 0,
-        LIGHT_SHADER,
-        TEXT_SHADER,
-        TEXTURE_SHADER,
-        UNKNOWN
-    };
-
     ShaderManager();
     ShaderManager(const ShaderManager& other);
     ~ShaderManager();
@@ -45,6 +37,15 @@ public:
                                const DirectX::XMFLOAT4 specularColor,
                                const float specularPower);
 
+    bool RenderWithSkyDomeShader(ID3D11DeviceContext* context,
+                                 const unsigned int indexCount,
+                                 const DirectX::XMMATRIX& world,
+                                 const DirectX::XMMATRIX& view,
+                                 const DirectX::XMMATRIX& projection,
+                                 const DirectX::XMFLOAT4 apexColor,
+                                 const DirectX::XMFLOAT4 centerColor,
+                                 const float radius);
+
     bool RenderWithTextShader(ID3D11DeviceContext* context,
                               const unsigned int indexCount,
                               const DirectX::XMMATRIX& world,
@@ -63,6 +64,7 @@ public:
 private:
     ColorShader* m_colorShader;
     LightShader* m_lightShader;
+    SkyDomeShader* m_SkyDomeShader;
     TextShader* m_textShader;
     TextureShader* m_textureShader;
 };

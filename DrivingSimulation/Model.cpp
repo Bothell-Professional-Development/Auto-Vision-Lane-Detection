@@ -1,5 +1,7 @@
 #include "stdafx.h"
 
+#include <limits>
+
 #include "Model.h"
 #include "System.h"
 
@@ -10,7 +12,13 @@ Model::Model() :
     m_texture(NULL),
     m_indexBuffer(NULL),
     m_vertexBuffer(NULL),
-    m_color(1.0f, 1.0f, 1.0f, 1.0f)
+    m_color(1.0f, 1.0f, 1.0f, 1.0f),
+    m_boundingBoxMinPoint(0.0f,
+                          0.0f,
+                          0.0f),
+    m_boundingBoxMaxPoint(0.0f,
+                          0.0f,
+                          0.0f)
 {
     m_position = new Position();
 }
@@ -75,6 +83,25 @@ const DirectX::XMFLOAT3& Model::GetRotation() const
     return m_position->GetRotation();
 }
 
+const DirectX::XMFLOAT3& Model::GetBoundingBoxMinPoint() const
+{
+    
+
+    return m_boundingBoxMinPoint;
+}
+
+const DirectX::XMFLOAT3& Model::GetBoundingBoxMaxPoint() const
+{
+    return m_boundingBoxMaxPoint;
+}
+
+const DirectX::XMFLOAT3 Model::GetBoundingBoxDimensions() const
+{
+    return DirectX::XMFLOAT3(abs(m_boundingBoxMaxPoint.x - m_boundingBoxMinPoint.x),
+                             abs(m_boundingBoxMaxPoint.y - m_boundingBoxMinPoint.y),
+                             abs(m_boundingBoxMaxPoint.z - m_boundingBoxMinPoint.z));
+}
+
 const unsigned int& Model::GetIndexCount() const
 {
     return m_indexCount;
@@ -101,6 +128,27 @@ void Model::Shutdown()
     ReleaseModel();
     ReleaseTexture();
     ShutdownBuffers();
+}
+
+void Model::ReverseFaces(ID3D11Device* device)
+{
+    for(unsigned int i = 0; i < m_vertexCount; i += 3)
+    {
+        if(m_texture)
+        {
+            TextureVertex temp = static_cast<TextureVertex*>(m_vertices)[i];
+            static_cast<TextureVertex*>(m_vertices)[i] = static_cast<TextureVertex*>(m_vertices)[i + 2];
+            static_cast<TextureVertex*>(m_vertices)[i + 2] = temp;
+        }
+        else
+        {
+            ColorVertex temp = static_cast<ColorVertex*>(m_vertices)[i];
+            static_cast<ColorVertex*>(m_vertices)[i] = static_cast<ColorVertex*>(m_vertices)[i + 1];
+            static_cast<ColorVertex*>(m_vertices)[i + 1] = temp;
+        }
+    }
+
+    InitializeBuffers(device);
 }
 
 void Model::Render(ID3D11DeviceContext* context)
@@ -406,6 +454,47 @@ void Model::ReleaseModel()
     }
 }
 
+void Model::UpdateBoundingBox()
+{
+    m_boundingBoxMinPoint.x = (std::numeric_limits<float>::max)();
+    m_boundingBoxMinPoint.y = (std::numeric_limits<float>::max)();
+    m_boundingBoxMinPoint.z = (std::numeric_limits<float>::max)();
+    m_boundingBoxMaxPoint.x = std::numeric_limits<float>::lowest();
+    m_boundingBoxMaxPoint.y = std::numeric_limits<float>::lowest();
+    m_boundingBoxMaxPoint.z = std::numeric_limits<float>::lowest();
+
+    for(unsigned int i = 0; i < m_vertexCount; ++i)
+    {
+        float x;
+        float y;
+        float z;
+
+        if(m_texture)
+        {
+            TextureVertex vertex = static_cast<TextureVertex*>(m_vertices)[i];
+
+            x = vertex.position.x;
+            y = vertex.position.y;
+            z = vertex.position.z;
+        }
+        else
+        {
+            ColorVertex vertex = static_cast<ColorVertex*>(m_vertices)[i];
+
+            x = vertex.position.x;
+            y = vertex.position.y;
+            z = vertex.position.z;
+        }
+
+        m_boundingBoxMinPoint.x = x < m_boundingBoxMinPoint.x ? x : m_boundingBoxMinPoint.x;
+        m_boundingBoxMinPoint.y = y < m_boundingBoxMinPoint.y ? y : m_boundingBoxMinPoint.y;
+        m_boundingBoxMinPoint.z = z < m_boundingBoxMinPoint.z ? z : m_boundingBoxMinPoint.z;
+        m_boundingBoxMaxPoint.x = x > m_boundingBoxMaxPoint.x ? x : m_boundingBoxMaxPoint.x;
+        m_boundingBoxMaxPoint.y = y > m_boundingBoxMaxPoint.y ? y : m_boundingBoxMaxPoint.y;
+        m_boundingBoxMaxPoint.z = z > m_boundingBoxMaxPoint.z ? z : m_boundingBoxMaxPoint.z;
+    }
+}
+
 bool Model::InitializeBuffers(ID3D11Device* device)
 {
     //just in case this model has already been initialized
@@ -502,6 +591,10 @@ bool Model::InitializeBuffers(ID3D11Device* device)
     if(!success)
     {
         ShutdownBuffers();
+    }
+    else
+    {
+        UpdateBoundingBox();
     }
 
     return success;

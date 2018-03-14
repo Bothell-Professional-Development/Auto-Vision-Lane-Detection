@@ -93,3 +93,20 @@ float Geometry::Distance(const DirectX::XMFLOAT2 point1,
     return hypotf(point2.x - point1.x,
                   point2.y - point1.y);
 }
+
+DirectX::XMFLOAT3 Geometry::CalculateNormal(const DirectX::XMFLOAT3 vertex1,
+                                            const DirectX::XMFLOAT3 vertex2,
+                                            const DirectX::XMFLOAT3 vertex3)
+{
+    DirectX::XMFLOAT3 vec1(vertex1.x - vertex3.x,
+                           vertex1.y - vertex3.y,
+                           vertex1.z - vertex3.z);
+
+    DirectX::XMFLOAT3 vec2(vertex3.x - vertex2.x,
+                           vertex3.y - vertex2.y,
+                           vertex3.z - vertex2.z);
+
+    return DirectX::XMFLOAT3((vec1.y * vec2.z) - (vec1.z * vec2.y),
+                             (vec1.z * vec2.x) - (vec1.x * vec2.z),
+                             (vec1.x * vec2.y) - (vec1.y * vec2.x));
+}

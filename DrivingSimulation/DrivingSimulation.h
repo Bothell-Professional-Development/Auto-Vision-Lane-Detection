@@ -7,6 +7,7 @@
 #include "DrivingMovementControls.h"
 #include "Light.h"
 #include "Player.h"
+#include "SkyDome.h"
 #include "Sprite.h"
 #include "Terrain.h"
 #include "Text.h"
@@ -58,6 +59,7 @@ private:
 
     //refactor into Scene class?
     Light* m_light;
+    SkyDome* m_skyDome;
     Terrain* m_terrain;
     Track* m_track;
     //std::vector<Model> m_entities;

@@ -26,6 +26,9 @@ public:
     static float Distance(const DirectX::XMFLOAT2 point1,
                           const DirectX::XMFLOAT2 point2);
 
+    static DirectX::XMFLOAT3 CalculateNormal(const DirectX::XMFLOAT3 vertex1,
+                                             const DirectX::XMFLOAT3 vertex2,
+                                             const DirectX::XMFLOAT3 vertex3);
 private:
     static const float FLOAT_TOLERANCE;
 };
